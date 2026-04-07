@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatLongDate, todayLocalDateString, toDateString } from "@/lib/date";
 import type { WeightRow } from "@/lib/weight-data";
-import { saveWeightCsvAction } from "@/app/actions/weight";
+import { saveWeightAction } from "@/app/actions/weight";
 import { WeightTrendChart } from "@/components/weight/weight-trend-chart";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -71,7 +71,7 @@ export function WeightPageClient({ initialRows }: Props) {
     const payload = rowsForSave(draft);
     startTransition(async () => {
       try {
-        await saveWeightCsvAction(payload);
+        await saveWeightAction(payload);
         router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : "Save failed");

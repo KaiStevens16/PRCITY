@@ -55,11 +55,11 @@ npx supabase gen types typescript --project-id YOUR_PROJECT_REF > src/types/supa
 
 ```
 kai-plan/
-├── data/                       # weight_state-2.csv — Weight tab reads/writes here by default
+├── data/                       # bundled JSON (e.g. quotes); weight lives in Supabase
 ├── src/
 │   ├── app/
 │   │   ├── (main)/               # Dashboard, Today, History, Lifts, Program
-│   │   ├── actions/              # Server actions (training, program, weight CSV)
+│   │   ├── actions/              # Server actions (training, program, weight)
 │   │   └── layout.tsx
 │   ├── components/
 │   │   ├── charts/               # Plotly wrapper + theme
@@ -83,6 +83,7 @@ kai-plan/
 - **`session_exercises`** — `planned_exercise_name` is copied at session start; `actual_exercise_name` and `is_substitution` capture swaps.
 - **`set_logs`** — per-set weight, reps, RPE, notes.
 - **`program_state`** — `current_rotation_index` (0–7) maps to `rotation_order` 1–8 on templates.
+- **`body_weight_entries`** — daily scale weight for the **Weight** page (`logged_date` + `weight` + `notes`); replaced atomically via `replace_body_weight_entries`.
 
 **Last time** uses the RPC `get_last_set_performance(p_user_id, p_template_exercise_id, p_before_date, p_exclude_session_id)` (service role only).
 

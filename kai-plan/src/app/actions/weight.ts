@@ -14,7 +14,7 @@ function isWeightRow(x: unknown): x is WeightRow {
   );
 }
 
-export async function saveWeightCsvAction(payload: unknown): Promise<void> {
+export async function saveWeightAction(payload: unknown): Promise<void> {
   if (!Array.isArray(payload)) {
     throw new Error("Invalid save payload.");
   }
@@ -27,7 +27,7 @@ export async function saveWeightCsvAction(payload: unknown): Promise<void> {
       notes: typeof item.notes === "string" ? item.notes : "",
     });
   }
-  saveWeightRows(rows);
+  await saveWeightRows(rows);
   revalidatePath("/weight");
   revalidatePath("/");
 }

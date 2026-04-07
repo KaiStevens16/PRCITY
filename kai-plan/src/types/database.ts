@@ -30,6 +30,16 @@ export type TemplateExercise = {
   updated_at: string;
 };
 
+export type BodyWeightEntry = {
+  id: string;
+  user_id: string;
+  logged_date: string;
+  weight: number;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ProgramState = {
   id: string;
   user_id: string;

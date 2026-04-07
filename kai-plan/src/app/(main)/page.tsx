@@ -151,7 +151,7 @@ export default async function CommandCenterPage() {
     }
   }
 
-  const { rows: weightRows } = loadWeightRows();
+  const weightRows = await loadWeightRows();
   const lastWeight = weightRows.length ? weightRows[weightRows.length - 1] : null;
 
   const phaseClass = todayTemplate ? phaseAccentClass(todayTemplate.phase) : "";
