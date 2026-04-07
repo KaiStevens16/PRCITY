@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { formatLongDate, todayLocalDateString, toDateString } from "@/lib/date";
 import type { WeightRow } from "@/lib/weight-data";
@@ -11,7 +10,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+
+const AUTOSAVE_DEBOUNCE_MS = 650;
+
+function serializePayload(rows: WeightRow[]): string {
+  return JSON.stringify(rows);
+}
+
+function canonicalRows(rows: WeightRow[]): WeightRow[] {
+  return [...rows].sort((a, b) => a.date.localeCompare(b.date));
+}
 
 type EditableRow = { id: string; date: string; weight: string; notes: string };
 
@@ -52,32 +61,63 @@ function rowsForSave(rows: EditableRow[]): WeightRow[] {
 type Props = { initialRows: WeightRow[] };
 
 export function WeightPageClient({ initialRows }: Props) {
-  const router = useRouter();
   const [draft, setDraft] = useState<EditableRow[]>(() => toEditable(initialRows));
   const [error, setError] = useState<string | null>(null);
+  const [saveHint, setSaveHint] = useState<"idle" | "saved">("idle");
   const [isPending, startTransition] = useTransition();
+  const lastSyncedRef = useRef<string>(serializePayload(canonicalRows(initialRows)));
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveHintClearRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    const serverKey = serializePayload(canonicalRows(initialRows));
+    if (serverKey === lastSyncedRef.current) return;
     setDraft(toEditable(initialRows));
+    lastSyncedRef.current = serverKey;
   }, [initialRows]);
 
   const saved = useMemo(() => rowsForSave(draft), [draft]);
+
+  useEffect(() => {
+    const payload = saved;
+    const key = serializePayload(payload);
+    if (key === lastSyncedRef.current) return;
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      debounceRef.current = null;
+      setError(null);
+      startTransition(async () => {
+        try {
+          await saveWeightAction(payload);
+          lastSyncedRef.current = serializePayload(payload);
+          setSaveHint("saved");
+          if (saveHintClearRef.current) clearTimeout(saveHintClearRef.current);
+          saveHintClearRef.current = setTimeout(() => {
+            saveHintClearRef.current = null;
+            setSaveHint("idle");
+          }, 2000);
+        } catch (e) {
+          setError(e instanceof Error ? e.message : "Save failed");
+        }
+      });
+    }, AUTOSAVE_DEBOUNCE_MS);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [saved]);
+
+  useEffect(
+    () => () => {
+      if (saveHintClearRef.current) clearTimeout(saveHintClearRef.current);
+    },
+    []
+  );
+
   const chartRows = saved;
   const last = saved.length ? saved[saved.length - 1] : null;
   const todayBanner = formatLongDate(todayLocalDateString());
-
-  function save() {
-    setError(null);
-    const payload = rowsForSave(draft);
-    startTransition(async () => {
-      try {
-        await saveWeightAction(payload);
-        router.refresh();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Save failed");
-      }
-    });
-  }
 
   function addRow() {
     const id =
@@ -183,20 +223,14 @@ export function WeightPageClient({ initialRows }: Props) {
               <CardTitle className="text-base">Log</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="sticky top-0 z-10 -mx-1 flex flex-wrap gap-2 border-b border-border/40 bg-card/95 px-1 pb-3 pt-1 backdrop-blur-sm">
+              <div className="sticky top-0 z-10 -mx-1 flex flex-wrap items-center gap-2 border-b border-border/40 bg-card/95 px-1 pb-3 pt-1 backdrop-blur-sm">
                 <Button type="button" variant="secondary" className="gap-2" onClick={addRow}>
                   <Plus className="h-4 w-4" />
                   Add row
                 </Button>
-                <Button
-                  type="button"
-                  className="gap-2"
-                  disabled={isPending}
-                  onClick={() => save()}
-                >
-                  <Save className="h-4 w-4" />
-                  {isPending ? "Saving…" : "Save"}
-                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {isPending ? "Saving…" : saveHint === "saved" ? "Saved" : "Saves automatically"}
+                </span>
               </div>
 
               <div className="overflow-x-auto rounded-xl border border-border/50">
