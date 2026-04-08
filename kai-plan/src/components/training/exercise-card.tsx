@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { LastTimePanel } from "@/components/training/last-time-panel";
 import { SetLogTable } from "@/components/training/set-log-table";
@@ -15,8 +14,15 @@ import type { LastSetPerformanceRow, SessionExercise, SetLog } from "@/types/dat
 import { phaseStripeClass } from "@/lib/rotation";
 import { updateSessionExercise } from "@/app/actions/training";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, Shuffle } from "lucide-react";
+import { ChevronDown, ChevronUp, CloudAlert, Shuffle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type Props = {
   phase: string;
@@ -41,6 +47,8 @@ export function ExerciseCard({
 }: Props) {
   const router = useRouter();
   const [subOpen, setSubOpen] = useState(false);
+  const [weirdOpen, setWeirdOpen] = useState(false);
+  const [weirdNotes, setWeirdNotes] = useState(sessionExercise.weird_exercise_notes ?? "");
   const [expanded, setExpanded] = useState(!sessionExercise.completed);
 
   const stripe = phaseStripeClass(phase);
@@ -58,21 +66,71 @@ export function ExerciseCard({
     >
       <CardHeader className="space-y-0 pb-0 pt-0">
         <div className="flex gap-0">
-          <div className="flex w-11 shrink-0 flex-col items-center justify-start border-r border-border/40 bg-muted/20 py-4">
+          <div className="flex w-11 shrink-0 flex-col items-center justify-start gap-2 border-r border-border/40 bg-muted/20 py-4">
             <span className="font-mono text-lg font-bold tabular-nums text-muted-foreground">
               {index + 1}
             </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+              onClick={() => setExpanded((e) => !e)}
+            >
+              {expanded ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </Button>
           </div>
           <div className="min-w-0 flex-1 space-y-3 p-4 pl-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-lg font-semibold leading-tight tracking-tight md:text-xl">
+                <div className="flex items-center gap-2">
+                  <h3 className="min-w-0 flex-1 text-lg font-semibold leading-tight tracking-tight md:text-xl">
                     {sessionExercise.actual_exercise_name}
                   </h3>
+                  <div className="flex shrink-0 items-center gap-1 whitespace-nowrap">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 gap-1 border-border/70 px-2"
+                      onClick={() => setSubOpen(true)}
+                    >
+                      <Shuffle className="h-3.5 w-3.5" />
+                      Swap/Remove
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={sessionExercise.weird_exercise ? "secondary" : "outline"}
+                      className={
+                        sessionExercise.weird_exercise
+                          ? "h-7 gap-1 border-amber-500/40 bg-amber-500/15 px-2 text-amber-100 hover:bg-amber-500/25"
+                          : "h-7 gap-1 border-border/70 px-2"
+                      }
+                      onClick={() => {
+                        setWeirdNotes(sessionExercise.weird_exercise_notes ?? "");
+                        setWeirdOpen(true);
+                      }}
+                    >
+                      <CloudAlert className="h-3.5 w-3.5" />
+                      Weird
+                    </Button>
+                  </div>
                   {sessionExercise.is_substitution && (
                     <Badge variant="outline" className="text-[9px] font-semibold uppercase tracking-wide">
                       Swap
+                    </Badge>
+                  )}
+                  {sessionExercise.weird_exercise && (
+                    <Badge
+                      variant="outline"
+                      className="border-amber-500/40 text-[9px] font-semibold uppercase tracking-wide text-amber-300"
+                    >
+                      Weird
                     </Badge>
                   )}
                 </div>
@@ -97,44 +155,7 @@ export function ExerciseCard({
                   ) : null}
                 </p>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 gap-1 text-muted-foreground hover:text-foreground"
-                  onClick={() => setExpanded((e) => !e)}
-                >
-                  {expanded ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 gap-1 border-border/70"
-                  onClick={() => setSubOpen(true)}
-                >
-                  <Shuffle className="h-3.5 w-3.5" />
-                  Swap
-                </Button>
-                <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border/50 bg-background/40 px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/30">
-                  <Checkbox
-                    className="border-border/80"
-                    checked={sessionExercise.completed}
-                    onCheckedChange={(c) => {
-                      void updateSessionExercise({
-                        id: sessionExercise.id,
-                        completed: c === true,
-                      }).then(() => router.refresh());
-                    }}
-                  />
-                  Done
-                </label>
-              </div>
+              <div className="flex shrink-0 items-center gap-2" />
             </div>
             <LastTimePanel rows={lastTime} mode={runWarmup ? "run" : "default"} />
           </div>
@@ -142,7 +163,11 @@ export function ExerciseCard({
       </CardHeader>
       {expanded && (
         <CardContent className="space-y-4 border-t border-border/40 bg-background/20 px-4 pb-5 pt-4 sm:pl-[calc(2.75rem+1rem)]">
-          {runWarmup ? <RunWarmupSetLog sets={sets} /> : <SetLogTable sets={sets} />}
+          {runWarmup ? (
+            <RunWarmupSetLog sets={sets} />
+          ) : (
+            <SetLogTable sessionExerciseId={sessionExercise.id} sets={sets} />
+          )}
           <div>
             <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               Exercise notes
@@ -168,6 +193,65 @@ export function ExerciseCard({
         plannedName={sessionExercise.planned_exercise_name}
         currentActual={sessionExercise.actual_exercise_name}
       />
+      <Dialog open={weirdOpen} onOpenChange={setWeirdOpen}>
+        <DialogContent className="border-border/80 bg-card sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <CloudAlert className="h-5 w-5 text-amber-400" />
+              Weird lift
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Mark this lift as weird (pain, fatigue, machine taken, etc.) without flagging the entire day.
+          </p>
+          <Textarea
+            value={weirdNotes}
+            onChange={(e) => setWeirdNotes(e.target.value)}
+            placeholder="e.g. Leg press stopped after set 3 because knee pain."
+            className="min-h-[100px] resize-y border-border/60 bg-background/50 text-sm"
+          />
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-muted-foreground"
+              onClick={() => {
+                void updateSessionExercise({
+                  id: sessionExercise.id,
+                  weirdExercise: false,
+                  weirdExerciseNotes: null,
+                }).then(() => {
+                  setWeirdOpen(false);
+                  router.refresh();
+                });
+              }}
+            >
+              Clear weird flag
+            </Button>
+            <div className="flex w-full gap-2 sm:w-auto">
+              <Button type="button" variant="secondary" onClick={() => setWeirdOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className="bg-amber-600 text-white hover:bg-amber-500"
+                onClick={() => {
+                  void updateSessionExercise({
+                    id: sessionExercise.id,
+                    weirdExercise: true,
+                    weirdExerciseNotes: weirdNotes.trim() || null,
+                  }).then(() => {
+                    setWeirdOpen(false);
+                    router.refresh();
+                  });
+                }}
+              >
+                Save weird lift
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

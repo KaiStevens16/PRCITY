@@ -1,9 +1,12 @@
 "use client";
 
 import { useTransition, useEffect, useState, useRef, useCallback } from "react";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { updateSetLog } from "@/app/actions/training";
+import {
+  addSetToSessionExercise,
+  removeSetLog,
+  updateSetLog,
+} from "@/app/actions/training";
 import type { SetLog } from "@/types/database";
 import {
   BW_SET_NOTE,
@@ -13,12 +16,14 @@ import {
   weightDraftFromSet,
 } from "@/lib/bw-set";
 import { useRouter } from "next/navigation";
+import { Trash2 } from "lucide-react";
 
 type Props = {
+  sessionExerciseId: string;
   sets: SetLog[];
 };
 
-type Draft = { w: string; r: string; rpe: string; n: string };
+type Draft = { w: string; r: string; n: string };
 
 function draftKey(sets: SetLog[]) {
   return sets
@@ -26,7 +31,7 @@ function draftKey(sets: SetLog[]) {
     .join("|");
 }
 
-export function SetLogTable({ sets }: Props) {
+export function SetLogTable({ sessionExerciseId, sets }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [draft, setDraft] = useState<Record<string, Draft>>({});
@@ -42,7 +47,6 @@ export function SetLogTable({ sets }: Props) {
       next[s.id] = {
         w: weightDraftFromSet(s.weight, s.set_note),
         r: s.reps != null ? String(s.reps) : "",
-        rpe: s.rpe != null ? String(s.rpe) : "",
         n: noteDraftFromSet(s.set_note),
       };
     }
@@ -50,7 +54,7 @@ export function SetLogTable({ sets }: Props) {
   }, [sets]);
 
   const flushSave = useCallback(
-    async (id: string, field: "weight" | "reps" | "rpe" | "set_note", raw: string) => {
+    async (id: string, field: "weight" | "reps" | "set_note", raw: string) => {
       const current = sets.find((s) => s.id === id);
       const currentNote = current?.set_note ?? null;
       if (field === "set_note") {
@@ -77,9 +81,6 @@ export function SetLogTable({ sets }: Props) {
       } else if (field === "reps") {
         const v = raw === "" ? null : parseInt(raw, 10);
         await updateSetLog({ id, reps: Number.isNaN(v as number) ? null : v });
-      } else if (field === "rpe") {
-        const v = raw === "" ? null : parseFloat(raw);
-        await updateSetLog({ id, rpe: v });
       }
     },
     [sets]
@@ -87,7 +88,7 @@ export function SetLogTable({ sets }: Props) {
 
   function scheduleSave(
     id: string,
-    field: "weight" | "reps" | "rpe" | "set_note",
+    field: "weight" | "reps" | "set_note",
     raw: string
   ) {
     const key = `${id}:${field}`;
@@ -113,9 +114,8 @@ export function SetLogTable({ sets }: Props) {
             <th className="px-2 py-2.5 pl-3">Set</th>
             <th className="px-1 py-2.5">Wt</th>
             <th className="px-1 py-2.5">Reps</th>
-            <th className="px-1 py-2.5">RPE</th>
-            <th className="px-2 py-2.5 text-center">✓</th>
             <th className="px-2 py-2.5 pr-3">Note</th>
+            <th className="px-2 py-2.5 pr-3 text-right"> </th>
           </tr>
         </thead>
         <tbody className={pending ? "opacity-70" : ""}>
@@ -123,7 +123,6 @@ export function SetLogTable({ sets }: Props) {
             const d = draft[s.id] ?? {
               w: "",
               r: "",
-              rpe: "",
               n: "",
             };
             return (
@@ -162,35 +161,6 @@ export function SetLogTable({ sets }: Props) {
                     }}
                   />
                 </td>
-                <td className="px-1 py-1">
-                  <Input
-                    aria-label={`Set ${s.set_number} RPE`}
-                    className="h-9 w-[3rem] border-border/60 bg-card/80 font-mono text-sm tabular-nums"
-                    value={d.rpe}
-                    type="text"
-                    inputMode="decimal"
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      updateDraft(s.id, "rpe", v);
-                      scheduleSave(s.id, "rpe", v);
-                    }}
-                  />
-                </td>
-                <td className="px-2 py-1 text-center">
-                  <Checkbox
-                    className="border-border/80"
-                    checked={s.completed}
-                    onCheckedChange={(c) => {
-                      startTransition(async () => {
-                        await updateSetLog({
-                          id: s.id,
-                          completed: c === true,
-                        });
-                        router.refresh();
-                      });
-                    }}
-                  />
-                </td>
                 <td className="px-2 py-1 pr-3">
                   <Input
                     className="h-9 min-w-[5rem] border-border/60 bg-card/80 text-xs"
@@ -204,11 +174,41 @@ export function SetLogTable({ sets }: Props) {
                     }}
                   />
                 </td>
+                <td className="px-2 py-1 pr-3 text-right">
+                  <button
+                    type="button"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10"
+                    aria-label={`Delete set ${s.set_number}`}
+                    onClick={() => {
+                      startTransition(async () => {
+                        await removeSetLog(s.id);
+                        router.refresh();
+                      });
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </td>
               </tr>
             );
           })}
         </tbody>
       </table>
+      <div className="flex items-center gap-2 border-t border-border/40 px-3 py-2">
+        <button
+          type="button"
+          className="rounded-md border border-border/60 px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
+          disabled={pending}
+          onClick={() => {
+            startTransition(async () => {
+              await addSetToSessionExercise(sessionExerciseId);
+              router.refresh();
+            });
+          }}
+        >
+          + Add Set
+        </button>
+      </div>
     </div>
   );
 }

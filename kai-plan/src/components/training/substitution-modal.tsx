@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { updateSessionExercise } from "@/app/actions/training";
+import { removeSessionExercise, updateSessionExercise } from "@/app/actions/training";
 import { useRouter } from "next/navigation";
 
 type Props = {
@@ -55,6 +55,16 @@ export function SubstitutionModal({
     router.refresh();
   }
 
+  async function removeFromSession() {
+    const ok = window.confirm(
+      "Remove this exercise from this session only? This does not change your protocol template."
+    );
+    if (!ok) return;
+    await removeSessionExercise(sessionExerciseId);
+    onOpenChange(false);
+    router.refresh();
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -84,6 +94,9 @@ export function SubstitutionModal({
           />
         </div>
         <DialogFooter>
+          <Button variant="destructive" onClick={removeFromSession}>
+            Remove from session
+          </Button>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>

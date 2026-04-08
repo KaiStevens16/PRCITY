@@ -22,7 +22,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useEffect, useState } from "react";
-import { Input } from "@/components/ui/input";
 import { Play, CheckCircle2, CloudAlert } from "lucide-react";
 
 type Props = {
@@ -42,7 +41,6 @@ export function WorkoutHeader({
   const router = useRouter();
   const [finishing, setFinishing] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
-  const [bodyweight, setBodyweight] = useState("");
   const [sessionNotes, setSessionNotes] = useState(
     session?.session_notes ?? ""
   );
@@ -78,7 +76,6 @@ export function WorkoutHeader({
     await completeSession({
       sessionId: session.id,
       sessionNotes: sessionNotes || undefined,
-      bodyweight: bodyweight ? parseFloat(bodyweight) : null,
     });
     setFinishing(false);
     setSummaryOpen(true);
@@ -222,19 +219,6 @@ export function WorkoutHeader({
                 }
                 placeholder="Anything global for this session…"
                 className="min-h-[72px] resize-y border-border/60 bg-background/50 text-sm"
-              />
-            </div>
-            <div>
-              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Bodyweight (saved on Finish)
-              </Label>
-              <Input
-                className="mt-1.5 h-10 max-w-[8rem] border-border/60 bg-background/50 font-mono tabular-nums"
-                type="number"
-                step="0.1"
-                placeholder="—"
-                value={bodyweight}
-                onChange={(e) => setBodyweight(e.target.value)}
               />
             </div>
           </div>

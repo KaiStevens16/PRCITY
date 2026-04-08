@@ -81,6 +81,8 @@ export type SessionExercise = {
   actual_exercise_name: string;
   is_substitution: boolean;
   substitution_reason: string | null;
+  weird_exercise: boolean;
+  weird_exercise_notes: string | null;
   exercise_notes: string | null;
   completed: boolean;
   order_index: number;

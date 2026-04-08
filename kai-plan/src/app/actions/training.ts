@@ -87,7 +87,8 @@ export async function startSession(templateId: string) {
 
     if (ie || !seRow) continue;
 
-    const rows = Array.from({ length: ex.target_sets }, (_, i) => ({
+    const initialSetCount = Math.max(1, ex.target_sets + 1);
+    const rows = Array.from({ length: initialSetCount }, (_, i) => ({
       session_exercise_id: seRow.id,
       set_number: i + 1,
       completed: false,
@@ -180,6 +181,65 @@ export async function updateSetLog(input: {
   return { ok: true };
 }
 
+export async function addSetToSessionExercise(sessionExerciseId: string) {
+  const supabase = createClient();
+  const { data: existing, error: readErr } = await supabase
+    .from("set_logs")
+    .select("set_number")
+    .eq("session_exercise_id", sessionExerciseId)
+    .order("set_number", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (readErr) return { error: readErr.message };
+
+  const nextSetNumber = (existing?.set_number ?? 0) + 1;
+  const { error } = await supabase.from("set_logs").insert({
+    session_exercise_id: sessionExerciseId,
+    set_number: nextSetNumber,
+    completed: false,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath("/today");
+  revalidatePath("/history");
+  revalidatePath("/lifts");
+  return { ok: true };
+}
+
+export async function removeSetLog(setLogId: string) {
+  const supabase = createClient();
+  const { error } = await supabase.from("set_logs").delete().eq("id", setLogId);
+  if (error) return { error: error.message };
+
+  revalidatePath("/today");
+  revalidatePath("/history");
+  revalidatePath("/lifts");
+  return { ok: true };
+}
+
+export async function removeLastSetFromSessionExercise(sessionExerciseId: string) {
+  const supabase = createClient();
+  const { data: lastSet, error: readErr } = await supabase
+    .from("set_logs")
+    .select("id")
+    .eq("session_exercise_id", sessionExerciseId)
+    .order("set_number", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (readErr) return { error: readErr.message };
+  if (!lastSet) return { error: "No sets to remove." };
+
+  const { error } = await supabase.from("set_logs").delete().eq("id", lastSet.id);
+  if (error) return { error: error.message };
+
+  revalidatePath("/today");
+  revalidatePath("/history");
+  revalidatePath("/lifts");
+  return { ok: true };
+}
+
 /** Run warm-up: miles → weight, minutes → reps, avg mph → rpe */
 export async function updateRunWarmupSetLog(input: {
   setLogId: string;
@@ -215,6 +275,8 @@ export async function updateSessionExercise(input: {
   actualExerciseName?: string;
   isSubstitution?: boolean;
   substitutionReason?: string | null;
+  weirdExercise?: boolean;
+  weirdExerciseNotes?: string | null;
 }) {
   const supabase = createClient();
   const patch: Record<string, unknown> = {};
@@ -225,6 +287,9 @@ export async function updateSessionExercise(input: {
   if (input.isSubstitution !== undefined) patch.is_substitution = input.isSubstitution;
   if (input.substitutionReason !== undefined)
     patch.substitution_reason = input.substitutionReason;
+  if (input.weirdExercise !== undefined) patch.weird_exercise = input.weirdExercise;
+  if (input.weirdExerciseNotes !== undefined)
+    patch.weird_exercise_notes = input.weirdExerciseNotes;
 
   const { error } = await supabase
     .from("session_exercises")
@@ -232,6 +297,20 @@ export async function updateSessionExercise(input: {
     .eq("id", input.id);
   if (error) return { error: error.message };
   revalidatePath("/today");
+  return { ok: true };
+}
+
+export async function removeSessionExercise(sessionExerciseId: string) {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("session_exercises")
+    .delete()
+    .eq("id", sessionExerciseId);
+
+  if (error) return { error: error.message };
+  revalidatePath("/today");
+  revalidatePath("/history");
+  revalidatePath("/lifts");
   return { ok: true };
 }
 
