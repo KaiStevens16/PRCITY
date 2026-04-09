@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getSoloUserId } from "@/lib/solo-user";
 import { isRunWarmupExercise } from "@/lib/run-warmup";
+import { revalidatePath } from "next/cache";
 
 export type HistoryWorkoutSet = {
   id: string;
@@ -117,4 +118,321 @@ export async function getHistorySessionWorkout(sessionId: string): Promise<
   });
 
   return { ok: true, blocks };
+}
+
+export async function quickAddWorkout(input: {
+  date: string;
+  templateId: string;
+  liftName: string;
+  weight: number | null;
+  reps: number | null;
+}) {
+  const supabase = createClient();
+  const userId = getSoloUserId();
+  const liftName = input.liftName.trim();
+  if (!liftName) return { error: "Lift name is required." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return { error: "Invalid date." };
+
+  const { data: template, error: tErr } = await supabase
+    .from("workout_templates")
+    .select("id, name, phase, split")
+    .eq("id", input.templateId)
+    .eq("is_active", true)
+    .single();
+  if (tErr || !template) return { error: "Select a valid workout template." };
+
+  const nowIso = new Date().toISOString();
+  const { data: session, error: sErr } = await supabase
+    .from("sessions")
+    .insert({
+      user_id: userId,
+      date: input.date,
+      template_id: template.id,
+      phase: template.phase,
+      split: template.split,
+      status: "completed",
+      started_at: nowIso,
+      completed_at: nowIso,
+      duration_minutes: 0,
+      session_notes: null,
+      weird_day: false,
+    })
+    .select("id")
+    .single();
+
+  if (sErr || !session) return { error: sErr?.message ?? "Failed to create session." };
+
+  const { data: se, error: seErr } = await supabase
+    .from("session_exercises")
+    .insert({
+      session_id: session.id,
+      template_exercise_id: null,
+      planned_exercise_name: liftName,
+      actual_exercise_name: liftName,
+      order_index: 0,
+      completed: true,
+    })
+    .select("id")
+    .single();
+
+  if (seErr || !se) return { error: seErr?.message ?? "Failed to create exercise." };
+
+  const { error: setErr } = await supabase.from("set_logs").insert({
+    session_exercise_id: se.id,
+    set_number: 1,
+    weight: input.weight,
+    reps: input.reps,
+    completed: true,
+  });
+
+  if (setErr) return { error: setErr.message };
+
+  revalidatePath("/history");
+  revalidatePath("/lifts");
+  revalidatePath("/");
+  return { ok: true, sessionId: session.id };
+}
+
+type ParsedSet = {
+  weight: number | null;
+  reps: number;
+  setNote: string | null;
+};
+
+type ParsedExercise = {
+  name: string;
+  sets: ParsedSet[];
+};
+
+function isSeparatorLine(line: string): boolean {
+  return /^[-—_=\s]{3,}$/.test(line);
+}
+
+function parseSetLine(line: string): ParsedSet | null {
+  const m = line
+    .trim()
+    .match(/^(bw|\d+(?:\.\d+)?)\s*(?:lb|lbs)?\s*for\s*(\d+)\s*$/i);
+  if (!m) return null;
+  const reps = Number(m[2]);
+  if (!Number.isFinite(reps) || reps <= 0) return null;
+  if (m[1].toLowerCase() === "bw") {
+    return { weight: null, reps, setNote: "bw" };
+  }
+  const weight = Number(m[1]);
+  if (!Number.isFinite(weight) || weight < 0) return null;
+  return { weight, reps, setNote: null };
+}
+
+function parseBulkWorkoutText(rawText: string): ParsedExercise[] {
+  const lines = rawText
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  const out: ParsedExercise[] = [];
+  let current: ParsedExercise | null = null;
+
+  for (const line of lines) {
+    if (isSeparatorLine(line)) {
+      if (current && current.sets.length) out.push(current);
+      current = null;
+      continue;
+    }
+
+    const parsedSet = parseSetLine(line);
+    if (parsedSet) {
+      if (!current) {
+        // Ignore stray set lines without an exercise header.
+        continue;
+      }
+      current.sets.push(parsedSet);
+      continue;
+    }
+
+    // New exercise header
+    if (current && current.sets.length) out.push(current);
+    current = { name: line, sets: [] };
+  }
+
+  if (current && current.sets.length) out.push(current);
+  return out;
+}
+
+export async function quickAddWorkoutBulk(input: {
+  date: string;
+  templateId: string;
+  rawText: string;
+}) {
+  const supabase = createClient();
+  const userId = getSoloUserId();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return { error: "Invalid date." };
+
+  const parsed = parseBulkWorkoutText(input.rawText);
+  if (!parsed.length) {
+    return {
+      error:
+        "Could not parse workout text. Use one exercise name line followed by lines like '185 for 4'.",
+    };
+  }
+
+  const { data: template, error: tErr } = await supabase
+    .from("workout_templates")
+    .select("id, phase, split")
+    .eq("id", input.templateId)
+    .eq("is_active", true)
+    .single();
+  if (tErr || !template) return { error: "Select a valid workout template." };
+
+  const nowIso = new Date().toISOString();
+  const { data: session, error: sErr } = await supabase
+    .from("sessions")
+    .insert({
+      user_id: userId,
+      date: input.date,
+      template_id: template.id,
+      phase: template.phase,
+      split: template.split,
+      status: "completed",
+      started_at: nowIso,
+      completed_at: nowIso,
+      duration_minutes: 0,
+      session_notes: null,
+      weird_day: false,
+    })
+    .select("id")
+    .single();
+
+  if (sErr || !session) return { error: sErr?.message ?? "Failed to create session." };
+
+  for (let i = 0; i < parsed.length; i++) {
+    const ex = parsed[i];
+    const { data: se, error: seErr } = await supabase
+      .from("session_exercises")
+      .insert({
+        session_id: session.id,
+        template_exercise_id: null,
+        planned_exercise_name: ex.name,
+        actual_exercise_name: ex.name,
+        order_index: i,
+        completed: true,
+      })
+      .select("id")
+      .single();
+    if (seErr || !se) return { error: seErr?.message ?? "Failed to create exercise rows." };
+
+    const setRows = ex.sets.map((s, idx) => ({
+      session_exercise_id: se.id,
+      set_number: idx + 1,
+      weight: s.weight,
+      reps: s.reps,
+      set_note: s.setNote,
+      completed: true,
+    }));
+    if (setRows.length) {
+      const { error: setErr } = await supabase.from("set_logs").insert(setRows);
+      if (setErr) return { error: setErr.message };
+    }
+  }
+
+  revalidatePath("/history");
+  revalidatePath("/lifts");
+  revalidatePath("/");
+  return { ok: true, sessionId: session.id };
+}
+
+export async function quickAddWorkoutFromTemplate(input: {
+  date: string;
+  templateId: string;
+  entries: Array<{
+    exerciseName: string;
+    sets: Array<{ weightText: string; repsText: string }>;
+  }>;
+}) {
+  const supabase = createClient();
+  const userId = getSoloUserId();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return { error: "Invalid date." };
+
+  const { data: template, error: tErr } = await supabase
+    .from("workout_templates")
+    .select("id, phase, split")
+    .eq("id", input.templateId)
+    .eq("is_active", true)
+    .single();
+  if (tErr || !template) return { error: "Select a valid workout template." };
+
+  const normalized = input.entries
+    .map((e) => ({
+      exerciseName: e.exerciseName.trim(),
+      sets: e.sets
+        .map((s) => {
+          const reps = s.repsText.trim() === "" ? null : Number(s.repsText);
+          const wt = s.weightText.trim();
+          if (!reps || !Number.isFinite(reps) || reps <= 0) return null;
+          if (wt.toLowerCase() === "bw") {
+            return { reps, weight: null as number | null, setNote: "bw" as string | null };
+          }
+          const weightNum = wt === "" ? null : Number(wt);
+          if (weightNum != null && !Number.isFinite(weightNum)) return null;
+          return { reps, weight: weightNum, setNote: null as string | null };
+        })
+        .filter((x): x is { reps: number; weight: number | null; setNote: string | null } => x != null),
+    }))
+    .filter((e) => e.exerciseName && e.sets.length > 0);
+
+  if (!normalized.length) {
+    return { error: "Enter at least one valid set before saving." };
+  }
+
+  const nowIso = new Date().toISOString();
+  const { data: session, error: sErr } = await supabase
+    .from("sessions")
+    .insert({
+      user_id: userId,
+      date: input.date,
+      template_id: template.id,
+      phase: template.phase,
+      split: template.split,
+      status: "completed",
+      started_at: nowIso,
+      completed_at: nowIso,
+      duration_minutes: 0,
+      session_notes: null,
+      weird_day: false,
+    })
+    .select("id")
+    .single();
+  if (sErr || !session) return { error: sErr?.message ?? "Failed to create session." };
+
+  for (let i = 0; i < normalized.length; i++) {
+    const ex = normalized[i];
+    const { data: se, error: seErr } = await supabase
+      .from("session_exercises")
+      .insert({
+        session_id: session.id,
+        template_exercise_id: null,
+        planned_exercise_name: ex.exerciseName,
+        actual_exercise_name: ex.exerciseName,
+        order_index: i,
+        completed: true,
+      })
+      .select("id")
+      .single();
+    if (seErr || !se) return { error: seErr?.message ?? "Failed to create exercise rows." };
+
+    const setRows = ex.sets.map((s, idx) => ({
+      session_exercise_id: se.id,
+      set_number: idx + 1,
+      weight: s.weight,
+      reps: s.reps,
+      set_note: s.setNote,
+      completed: true,
+    }));
+    const { error: setErr } = await supabase.from("set_logs").insert(setRows);
+    if (setErr) return { error: setErr.message };
+  }
+
+  revalidatePath("/history");
+  revalidatePath("/lifts");
+  revalidatePath("/");
+  return { ok: true, sessionId: session.id };
 }

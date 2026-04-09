@@ -6,6 +6,7 @@ import { todayLocalDateString } from "@/lib/date";
 import { WorkoutHeader } from "@/components/training/workout-header";
 import { TodayWorkoutChooser } from "@/components/training/today-workout-chooser";
 import { ExerciseCard } from "@/components/training/exercise-card";
+import { FinishSessionFooter } from "@/components/training/finish-session-footer";
 import { PlannedExerciseCard } from "@/components/training/planned-exercise-card";
 import type { LastSetPerformanceRow, WorkoutTemplate } from "@/types/database";
 import { Card, CardContent } from "@/components/ui/card";
@@ -194,6 +195,7 @@ export default async function TodayPage({ searchParams }: TodayPageProps) {
             />
           ))}
         </div>
+        <FinishSessionFooter sessionId={session.id} />
       </div>
     );
   }

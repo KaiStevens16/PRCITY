@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getSoloUserId } from "@/lib/solo-user";
 import { exerciseSlug } from "@/lib/slug";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 export default async function LiftsPage() {
   const supabase = createClient();
@@ -52,6 +53,11 @@ export default async function LiftsPage() {
           )}
         </CardContent>
       </Card>
+      <div className="flex justify-center pt-1">
+        <Button variant="secondary" asChild>
+          <Link href="/history">Add workout</Link>
+        </Button>
+      </div>
     </div>
   );
 }

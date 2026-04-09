@@ -105,6 +105,35 @@ export default async function HistoryPage() {
     ].sort((a, b) => a.localeCompare(b));
   }
 
+  const { data: templates } = await supabase
+    .from("workout_templates")
+    .select("id, name")
+    .eq("is_active", true)
+    .order("rotation_order", { ascending: true });
+  const workoutOptions = (templates ?? []).map((t) => ({ id: t.id, name: t.name }));
+  const templateIds = workoutOptions.map((t) => t.id);
+  const { data: templateExercises } = templateIds.length
+    ? await supabase
+        .from("template_exercises")
+        .select("template_id, exercise_name, target_sets, order_index")
+        .in("template_id", templateIds)
+        .order("order_index", { ascending: true })
+    : { data: [] as { template_id: string; exercise_name: string; target_sets: number; order_index: number }[] };
+
+  const byTemplate = new Map<string, { exerciseName: string; targetSets: number }[]>();
+  for (const row of templateExercises ?? []) {
+    const list = byTemplate.get(row.template_id) ?? [];
+    list.push({
+      exerciseName: row.exercise_name,
+      targetSets: row.target_sets,
+    });
+    byTemplate.set(row.template_id, list);
+  }
+  const workoutTemplates = workoutOptions.map((w) => ({
+    ...w,
+    exercises: byTemplate.get(w.id) ?? [],
+  }));
+
   return (
     <div className="space-y-6">
       <div>
@@ -118,6 +147,8 @@ export default async function HistoryPage() {
         lastWeek={lastWeek}
         allSessions={rows}
         exerciseNames={exerciseNames}
+        workoutOptions={workoutOptions}
+        workoutTemplates={workoutTemplates}
       />
     </div>
   );

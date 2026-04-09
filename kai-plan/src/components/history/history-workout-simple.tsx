@@ -313,7 +313,8 @@ function HistoryLiftSetRow({
         value={w}
         onChange={(e) => setW(e.target.value)}
         onBlur={() => void save()}
-        inputMode="decimal"
+        inputMode="text"
+        placeholder="bw"
       />
       <span className="text-muted-foreground">for</span>
       <Input

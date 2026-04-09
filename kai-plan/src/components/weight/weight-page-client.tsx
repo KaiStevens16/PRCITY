@@ -233,7 +233,49 @@ export function WeightPageClient({ initialRows }: Props) {
                 </span>
               </div>
 
-              <div className="overflow-x-auto rounded-xl border border-border/50">
+              <div className="rounded-xl border border-border/50">
+                <div className="space-y-2 p-2 sm:hidden">
+                  {draft.map((r) => (
+                    <div key={r.id} className="rounded-lg border border-border/40 bg-background/40 p-2">
+                      <div className="grid grid-cols-1 gap-2">
+                        <Input
+                          type="date"
+                          value={r.date}
+                          onChange={(e) => updateRow(r.id, { date: e.target.value })}
+                          className="h-9 border-border/60 bg-background/50 font-mono text-xs"
+                        />
+                        <Input
+                          type="number"
+                          step="0.1"
+                          inputMode="decimal"
+                          placeholder="Weight"
+                          value={r.weight}
+                          onChange={(e) => updateRow(r.id, { weight: e.target.value })}
+                          className="h-9 border-border/60 bg-background/50 font-mono tabular-nums"
+                        />
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={r.notes}
+                            onChange={(e) => updateRow(r.id, { notes: e.target.value })}
+                            placeholder="Notes"
+                            className="h-9 border-border/60 bg-background/50 text-xs"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            aria-label="Delete row"
+                            onClick={() => removeRow(r.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="hidden overflow-x-auto sm:block">
                 <table className="w-full min-w-[520px] text-sm">
                   <thead>
                     <tr className="border-b border-border/60 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -292,6 +334,7 @@ export function WeightPageClient({ initialRows }: Props) {
                     ))}
                   </tbody>
                 </table>
+                </div>
                 {!draft.length && (
                   <p className="px-4 py-8 text-center text-sm text-muted-foreground">
                     No rows yet. Add a row to start logging.

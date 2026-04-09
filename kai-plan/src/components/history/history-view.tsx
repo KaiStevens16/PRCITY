@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { exerciseSlug } from "@/lib/slug";
 import { HistorySessionTable } from "@/components/history/history-session-table";
+import { QuickAddWorkoutForm } from "@/components/history/quick-add-workout-form";
 
 export type SessionRow = {
   id: string;
@@ -25,6 +26,12 @@ type Props = {
   lastWeek: SessionRow[];
   allSessions: SessionRow[];
   exerciseNames: string[];
+  workoutOptions: { id: string; name: string }[];
+  workoutTemplates: {
+    id: string;
+    name: string;
+    exercises: { exerciseName: string; targetSets: number }[];
+  }[];
 };
 
 export function HistoryView({
@@ -32,9 +39,13 @@ export function HistoryView({
   lastWeek,
   allSessions,
   exerciseNames,
+  workoutOptions,
+  workoutTemplates,
 }: Props) {
   return (
-    <Tabs defaultValue="all" className="w-full">
+    <div className="space-y-4">
+      <QuickAddWorkoutForm workoutOptions={workoutOptions} workoutTemplates={workoutTemplates} />
+      <Tabs defaultValue="all" className="w-full">
       <TabsList className="flex h-auto flex-wrap gap-1 rounded-xl border border-border/40 bg-muted/20 p-1">
         <TabsTrigger value="all" className="rounded-lg data-[state=active]:shadow-sm">
           All History
@@ -93,6 +104,7 @@ export function HistoryView({
           </CardContent>
         </Card>
       </TabsContent>
-    </Tabs>
+      </Tabs>
+    </div>
   );
 }

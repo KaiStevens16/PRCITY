@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import type { SetLog } from "@/types/database";
 import { formatLongDate } from "@/lib/date";
 import { defaultPlotlyLayout } from "@/lib/plotly-theme";
+import { QuickAddWorkoutForm } from "@/components/history/quick-add-workout-form";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -23,13 +24,19 @@ export default async function LiftDetailPage({ params }: Props) {
 
   const { data: sessions } = await supabase
     .from("sessions")
-    .select("id, date")
+    .select("id, date, phase")
     .eq("user_id", userId)
     .eq("status", "completed")
     .order("date", { ascending: true });
 
   const sessionIds = (sessions ?? []).map((s) => s.id);
-  const sessionDate = new Map((sessions ?? []).map((s) => [s.id, s.date]));
+  const { data: templates } = await supabase
+    .from("workout_templates")
+    .select("id, name")
+    .eq("is_active", true)
+    .order("rotation_order", { ascending: true });
+  const workoutOptions = (templates ?? []).map((t) => ({ id: t.id, name: t.name }));
+  const sessionMeta = new Map((sessions ?? []).map((s) => [s.id, { date: s.date, phase: s.phase }]));
 
   if (!sessionIds.length) {
     return (
@@ -59,12 +66,12 @@ export default async function LiftDetailPage({ params }: Props) {
 
   const bySession = new Map<
     string,
-    { date: string; sets: SetLog[]; notes: string | null }
+    { date: string; phase: string; sets: SetLog[]; notes: string | null }
   >();
   for (const se of sessionExercises) {
-    const d = sessionDate.get(se.session_id);
-    if (!d) continue;
-    bySession.set(se.id, { date: d, sets: [], notes: se.exercise_notes });
+    const meta = sessionMeta.get(se.session_id);
+    if (!meta) continue;
+    bySession.set(se.id, { date: meta.date, phase: meta.phase, sets: [], notes: se.exercise_notes });
   }
   for (const l of logs ?? []) {
     const entry = bySession.get(l.session_exercise_id);
@@ -130,6 +137,27 @@ export default async function LiftDetailPage({ params }: Props) {
     marker: { size: 7, line: { width: 0 }, color: "hsl(258 88% 68%)" },
   };
 
+  const phaseTopSet = (phase: "Hypertrophy" | "Strength", color: string): Data => {
+    const phasePoints = points.filter((p) => p.phase === phase);
+    return {
+      type: "scatter",
+      mode: "lines+markers",
+      name: `${phase} top set`,
+      x: phasePoints.map((p) => p.date),
+      y: phasePoints.map((p) => {
+        let best = 0;
+        for (const s of p.sets) {
+          if (s.weight != null && s.reps != null) best = Math.max(best, Number(s.weight) * Number(s.reps));
+        }
+        return best;
+      }),
+      customdata: phasePoints.map((p) => formatLongDate(p.date)),
+      hovertemplate: "%{customdata}<br>%{y:.0f}<extra></extra>",
+      line: { color, width: 2.5, shape: "spline" },
+      marker: { size: 7, line: { width: 0 }, color },
+    };
+  };
+
   const volData: Data = {
     type: "scatter",
     mode: "lines+markers",
@@ -175,6 +203,36 @@ export default async function LiftDetailPage({ params }: Props) {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-1">
+        <Card className="border-border/60 bg-card/90 shadow-card">
+          <CardHeader className="pb-1">
+            <CardTitle className="text-sm font-semibold">Hypertrophy top set load × reps</CardTitle>
+          </CardHeader>
+          <CardContent className="pb-5">
+            <PlotlyChart
+              data={[phaseTopSet("Hypertrophy", "hsl(258 88% 68%)")]}
+              layout={{
+                xaxis: liftDateXAxis,
+                margin: { ...defaultPlotlyLayout.margin, l: 58, r: 16, b: 65 },
+              }}
+              className="h-[300px] w-full min-h-[260px]"
+            />
+          </CardContent>
+        </Card>
+        <Card className="border-border/60 bg-card/90 shadow-card">
+          <CardHeader className="pb-1">
+            <CardTitle className="text-sm font-semibold">Strength top set load × reps</CardTitle>
+          </CardHeader>
+          <CardContent className="pb-5">
+            <PlotlyChart
+              data={[phaseTopSet("Strength", "hsl(22 92% 58%)")]}
+              layout={{
+                xaxis: liftDateXAxis,
+                margin: { ...defaultPlotlyLayout.margin, l: 58, r: 16, b: 65 },
+              }}
+              className="h-[300px] w-full min-h-[260px]"
+            />
+          </CardContent>
+        </Card>
         <Card className="border-border/60 bg-card/90 shadow-card">
           <CardHeader className="pb-1">
             <CardTitle className="text-sm font-semibold">Top set load × reps</CardTitle>
@@ -247,6 +305,9 @@ export default async function LiftDetailPage({ params }: Props) {
             ))}
         </CardContent>
       </Card>
+      <div className="pt-2">
+        <QuickAddWorkoutForm workoutOptions={workoutOptions} defaultLiftName={name} compact />
+      </div>
     </div>
   );
 }

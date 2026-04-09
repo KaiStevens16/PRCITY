@@ -139,7 +139,8 @@ export function SetLogTable({ sessionExerciseId, sets }: Props) {
                     className="h-9 w-[4.25rem] border-border/60 bg-card/80 font-mono text-sm tabular-nums"
                     value={d.w}
                     type="text"
-                    inputMode="decimal"
+                    inputMode="text"
+                    placeholder="bw"
                     onChange={(e) => {
                       const v = e.target.value;
                       updateDraft(s.id, "w", v);
