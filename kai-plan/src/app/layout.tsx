@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
+import { DisableZoom } from "@/components/disable-zoom";
 
 const inter = Inter({
   variable: "--font-geist-sans",
@@ -35,6 +36,7 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${jetbrains.variable} min-h-screen font-sans antialiased`}
       >
+        <DisableZoom />
         <Providers>{children}</Providers>
       </body>
     </html>
