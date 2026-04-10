@@ -3,6 +3,7 @@ import {
   Activity,
   CalendarDays,
   Dumbbell,
+  Footprints,
   LayoutDashboard,
   ListTree,
   Scale,
@@ -17,4 +18,5 @@ export const APP_NAV_LINKS: AppNavItem[] = [
   { href: "/lifts", label: "Lifts", icon: Dumbbell },
   { href: "/program", label: "Protocol", icon: ListTree },
   { href: "/weight", label: "Weight", icon: Scale },
+  { href: "/steps", label: "Steps", icon: Footprints },
 ];

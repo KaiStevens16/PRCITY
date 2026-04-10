@@ -6,7 +6,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
       <SidebarNav />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="relative flex min-h-12 items-center justify-center border-b border-border/60 bg-background/90 px-4 py-3 backdrop-blur-md supports-[backdrop-filter]:bg-background/75 md:hidden">
           <div className="absolute left-4 top-1/2 -translate-y-1/2">
             <MobileNav />
@@ -21,6 +21,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main className="flex-1 overflow-auto px-4 py-6 sm:px-6 md:px-8 md:py-8">
           <div className="mx-auto max-w-6xl">{children}</div>
         </main>
+        <footer className="shrink-0 border-t border-border/25 px-4 py-2 sm:px-6 md:px-8">
+          <div className="mx-auto flex max-w-6xl justify-center gap-3 text-[10px] leading-none text-muted-foreground/45">
+            <Link href="/privacy" className="hover:text-muted-foreground/65">
+              Privacy
+            </Link>
+            <span className="text-muted-foreground/25" aria-hidden>
+              ·
+            </span>
+            <Link href="/terms" className="hover:text-muted-foreground/65">
+              Terms
+            </Link>
+          </div>
+        </footer>
       </div>
     </div>
   );

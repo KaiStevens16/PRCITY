@@ -23,6 +23,8 @@ import { Activity, ArrowRight, Footprints, Quote, Scale, Trophy } from "lucide-r
 import { cn } from "@/lib/utils";
 import { quoteOfDay } from "@/lib/quote-of-day";
 
+export const dynamic = "force-dynamic";
+
 export default async function CommandCenterPage() {
   const supabase = createClient();
   const userId = getSoloUserId();
@@ -56,6 +58,7 @@ export default async function CommandCenterPage() {
   const weekEndDate = new Date(monday);
   weekEndDate.setDate(weekEndDate.getDate() + 6);
   const weekEnd = toDateString(weekEndDate);
+  const todayStr = todayLocalDateString();
 
   const { data: weekSessions } = await supabase
     .from("sessions")
@@ -236,7 +239,7 @@ export default async function CommandCenterPage() {
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               Completed sessions · {formatLongDate(weekStart)} →{" "}
-              {formatLongDate(todayLocalDateString())}
+              {formatLongDate(todayStr)}
             </p>
           </CardContent>
         </Card>
