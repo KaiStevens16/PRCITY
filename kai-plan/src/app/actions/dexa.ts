@@ -1,6 +1,5 @@
 "use server";
 
-import { PDFParse } from "pdf-parse";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getSoloUserId } from "@/lib/solo-user";
@@ -11,6 +10,8 @@ const MAX_BYTES = 10 * 1024 * 1024;
 const BUCKET = "dexa-scans";
 
 async function extractPdfText(buffer: Buffer): Promise<string> {
+  /** Dynamic import so pdfjs-dist never loads on routes that only import other Dexa actions (e.g. weight autosave + RSC). */
+  const { PDFParse } = await import("pdf-parse");
   const parser = new PDFParse({ data: new Uint8Array(buffer) });
   try {
     const result = await parser.getText();
