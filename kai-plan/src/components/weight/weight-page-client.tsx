@@ -164,7 +164,11 @@ export function WeightPageClient({ initialRows, initialDexaScans }: Props) {
       setError(null);
       startTransition(async () => {
         try {
-          await saveWeightAction(payload);
+          const res = await saveWeightAction(payload);
+          if ("error" in res) {
+            setError(res.error);
+            return;
+          }
           lastSyncedRef.current = serializePayload(payload);
           setSaveHint("saved");
           if (saveHintClearRef.current) clearTimeout(saveHintClearRef.current);

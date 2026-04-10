@@ -14,10 +14,10 @@ function isWeightRow(x: unknown): x is WeightRow {
   );
 }
 
-export async function saveWeightAction(payload: unknown): Promise<void> {
-  if (!Array.isArray(payload)) {
-    throw new Error("Invalid save payload.");
-  }
+export async function saveWeightAction(
+  payload: unknown
+): Promise<{ ok: true } | { error: string }> {
+  if (!Array.isArray(payload)) return { error: "Invalid save payload." };
   const rows: WeightRow[] = [];
   for (const item of payload) {
     if (!isWeightRow(item)) continue;
@@ -27,6 +27,11 @@ export async function saveWeightAction(payload: unknown): Promise<void> {
       notes: typeof item.notes === "string" ? item.notes : "",
     });
   }
-  await saveWeightRows(rows);
-  revalidatePath("/weight");
+  try {
+    await saveWeightRows(rows);
+    revalidatePath("/weight");
+    return { ok: true };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Save failed." };
+  }
 }
