@@ -29,5 +29,4 @@ export async function saveWeightAction(payload: unknown): Promise<void> {
   }
   await saveWeightRows(rows);
   revalidatePath("/weight");
-  revalidatePath("/");
 }
