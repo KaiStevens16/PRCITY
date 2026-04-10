@@ -49,16 +49,21 @@ export async function saveWeightRows(rows: WeightRow[]): Promise<void> {
   const userId = getSoloUserId();
   const cleaned = dedupeRowsByDate(rows);
 
+  const { error: delErr } = await supabase
+    .from("body_weight_entries")
+    .delete()
+    .eq("user_id", userId);
+  if (delErr) throw new Error(delErr.message);
+
+  if (!cleaned.length) return;
+
   const payload = cleaned.map((r) => ({
-    date: r.date,
+    user_id: userId,
+    logged_date: r.date,
     weight: r.weight,
     notes: (r.notes ?? "").trim(),
   }));
 
-  const { error } = await supabase.rpc("replace_body_weight_entries", {
-    p_user_id: userId,
-    p_rows: payload,
-  });
-
-  if (error) throw new Error(error.message);
+  const { error: insErr } = await supabase.from("body_weight_entries").insert(payload);
+  if (insErr) throw new Error(insErr.message);
 }
