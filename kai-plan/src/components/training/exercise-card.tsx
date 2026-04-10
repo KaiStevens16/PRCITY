@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { isRunWarmupExercise } from "@/lib/run-warmup";
 import { SubstitutionModal } from "@/components/training/substitution-modal";
 import type { LastSetPerformanceRow, SessionExercise, SetLog } from "@/types/database";
 import { phaseStripeClass } from "@/lib/rotation";
-import { updateSessionExercise } from "@/app/actions/training";
+import { addSessionExerciseAfter, updateSessionExercise } from "@/app/actions/training";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, CloudAlert, Shuffle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -23,10 +23,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type Props = {
   phase: string;
   index: number;
+  sessionId: string;
+  afterOrderIndex: number;
   sessionExercise: SessionExercise;
   sets: SetLog[];
   lastTime: LastSetPerformanceRow[];
@@ -38,6 +42,8 @@ type Props = {
 export function ExerciseCard({
   phase,
   index,
+  sessionId,
+  afterOrderIndex,
   sessionExercise,
   sets,
   lastTime,
@@ -46,8 +52,11 @@ export function ExerciseCard({
   intensityNote,
 }: Props) {
   const router = useRouter();
+  const [pendingAdd, startAddTransition] = useTransition();
   const [subOpen, setSubOpen] = useState(false);
   const [weirdOpen, setWeirdOpen] = useState(false);
+  const [addLiftOpen, setAddLiftOpen] = useState(false);
+  const [newLiftName, setNewLiftName] = useState("");
   const [weirdNotes, setWeirdNotes] = useState(sessionExercise.weird_exercise_notes ?? "");
   const [expanded, setExpanded] = useState(!sessionExercise.completed);
 
@@ -155,9 +164,23 @@ export function ExerciseCard({
                   ) : null}
                 </p>
               </div>
-              <div className="flex shrink-0 items-center gap-2" />
             </div>
             <LastTimePanel rows={lastTime} mode={runWarmup ? "run" : "default"} />
+            <div className="pt-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                disabled={pendingAdd}
+                onClick={() => {
+                  setNewLiftName("");
+                  setAddLiftOpen(true);
+                }}
+              >
+                + Add lift below
+              </Button>
+            </div>
           </div>
         </div>
       </CardHeader>
@@ -193,6 +216,52 @@ export function ExerciseCard({
         plannedName={sessionExercise.planned_exercise_name}
         currentActual={sessionExercise.actual_exercise_name}
       />
+      <Dialog open={addLiftOpen} onOpenChange={setAddLiftOpen}>
+        <DialogContent className="border-border/80 bg-card sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add lift below</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Adds a new exercise to this session only (does not change your protocol).
+          </p>
+          <div className="space-y-2">
+            <Label htmlFor="new-lift-name">Exercise name</Label>
+            <Input
+              id="new-lift-name"
+              value={newLiftName}
+              onChange={(e) => setNewLiftName(e.target.value)}
+              placeholder="e.g. Goblet squat"
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="secondary" onClick={() => setAddLiftOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={pendingAdd || !newLiftName.trim()}
+              onClick={() => {
+                startAddTransition(async () => {
+                  const r = await addSessionExerciseAfter({
+                    sessionId,
+                    afterOrderIndex,
+                    exerciseName: newLiftName.trim(),
+                  });
+                  if (r && "error" in r && r.error) {
+                    window.alert(r.error);
+                    return;
+                  }
+                  setAddLiftOpen(false);
+                  setNewLiftName("");
+                  router.refresh();
+                });
+              }}
+            >
+              Add
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={weirdOpen} onOpenChange={setWeirdOpen}>
         <DialogContent className="border-border/80 bg-card sm:max-w-md">
           <DialogHeader>

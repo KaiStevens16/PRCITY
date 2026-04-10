@@ -1,5 +1,8 @@
 -- PR CITY seed: 8 rotation templates + exercises
 -- Run after migrations. Requires at least one auth user for program_state (auto via trigger on signup).
+--
+-- Re-runnable: workout_templates use ON CONFLICT (rotation_order); template_exercises use
+-- ON CONFLICT (template_id, order_index) DO UPDATE so you can paste this again without duplicate-key errors.
 
 -- Fixed template IDs for stable references
 insert into public.workout_templates (
@@ -11,7 +14,7 @@ insert into public.workout_templates (
   'Hypertrophy',
   'Chest, Triceps',
   90,
-  'YOU ARE NOT DOING THIS SHIT FASTED. Eat roughly 40–80g carbs and 15–30g protein about 1 hour before. Keep fat under 15g.',
+  null,
   'WARM UP DEAR GOD',
   1,
   true
@@ -44,7 +47,7 @@ insert into public.workout_templates (
   'Recovery',
   'Active Recovery',
   20,
-  'Rest / kind of rest. If you feel like you''re going to die, take it seriously. Running 2 miles on rest day means no run before next workout.',
+  null,
   null,
   4,
   true
@@ -88,7 +91,7 @@ insert into public.workout_templates (
   'Recovery',
   'Active Recovery',
   20,
-  'Rest / kind of rest. If you feel like you''re going to die, take it seriously. Running 2 miles on rest day means no run before next workout.',
+  null,
   null,
   8,
   true
@@ -106,7 +109,15 @@ insert into public.template_exercises (template_id, exercise_name, exercise_grou
 ('a0000000-0000-4000-8000-000000000001', 'Incline Dumbbell Press', 'Chest', 2, 15, 20, '40–75% 1RM', 90, 5),
 ('a0000000-0000-4000-8000-000000000001', 'Pec Deck OR Down Cables', 'Chest', 2, 15, 20, null, 75, 6),
 ('a0000000-0000-4000-8000-000000000001', 'Incline Cables', 'Chest', 2, 15, 20, null, 75, 7),
-('a0000000-0000-4000-8000-000000000001', 'Tricep Bar Pressdowns', 'Triceps', 4, 10, 12, null, 90, 8);
+('a0000000-0000-4000-8000-000000000001', 'Tricep Bar Pressdowns', 'Triceps', 4, 10, 12, null, 90, 8)
+on conflict (template_id, order_index) do update set
+  exercise_name = excluded.exercise_name,
+  exercise_group = excluded.exercise_group,
+  target_sets = excluded.target_sets,
+  rep_min = excluded.rep_min,
+  rep_max = excluded.rep_max,
+  intensity_note = excluded.intensity_note,
+  rest_seconds = excluded.rest_seconds;
 
 -- Hypertrophy Back (2)
 insert into public.template_exercises (template_id, exercise_name, exercise_group, target_sets, rep_min, rep_max, intensity_note, rest_seconds, order_index) values
@@ -116,10 +127,18 @@ insert into public.template_exercises (template_id, exercise_name, exercise_grou
 ('a0000000-0000-4000-8000-000000000002', 'Mid Rows OR Landmine', 'Back', 4, 10, 12, null, 90, 3),
 ('a0000000-0000-4000-8000-000000000002', 'Low Rows', 'Back', 4, 10, 12, 'Narrow Parallel — 40–75% 1RM', 90, 4),
 ('a0000000-0000-4000-8000-000000000002', 'Dumbbell Rows Each Arm', 'Back', 2, 15, 20, '40–75% 1RM', 90, 5),
-('a0000000-0000-4000-8000-000000000002', 'Back Extensions', 'Back', 2, 15, 20, null, 75, 6),
-('a0000000-0000-4000-8000-000000000002', 'Seated Good Mornings', 'Back', 2, 15, 20, null, 75, 7),
+('a0000000-0000-4000-8000-000000000002', 'Back Extensions', 'Back', 2, 8, 12, null, 75, 6),
+('a0000000-0000-4000-8000-000000000002', 'Seated Good Mornings', 'Back', 2, 8, 12, null, 75, 7),
 ('a0000000-0000-4000-8000-000000000002', 'Bicep Curls', 'Biceps', 4, 10, 12, null, 75, 8),
-('a0000000-0000-4000-8000-000000000002', 'Hammer Curls', 'Biceps', 4, 10, 12, null, 75, 9);
+('a0000000-0000-4000-8000-000000000002', 'Hammer Curls', 'Biceps', 4, 10, 12, null, 75, 9)
+on conflict (template_id, order_index) do update set
+  exercise_name = excluded.exercise_name,
+  exercise_group = excluded.exercise_group,
+  target_sets = excluded.target_sets,
+  rep_min = excluded.rep_min,
+  rep_max = excluded.rep_max,
+  intensity_note = excluded.intensity_note,
+  rest_seconds = excluded.rest_seconds;
 
 -- Hypertrophy Legs (3)
 insert into public.template_exercises (template_id, exercise_name, exercise_group, target_sets, rep_min, rep_max, intensity_note, rest_seconds, order_index) values
@@ -128,11 +147,27 @@ insert into public.template_exercises (template_id, exercise_name, exercise_grou
 ('a0000000-0000-4000-8000-000000000003', 'Back Squats OR Front Squats', 'Legs', 3, 10, 12, null, 150, 2),
 ('a0000000-0000-4000-8000-000000000003', 'Hamstring Curls', 'Legs', 3, 10, 12, '40–75% 1RM', 90, 3),
 ('a0000000-0000-4000-8000-000000000003', 'Leg Extensions', 'Legs', 3, 10, 12, '40–75% 1RM', 90, 4),
-('a0000000-0000-4000-8000-000000000003', 'Calves', 'Legs', 4, 10, 12, null, 60, 5);
+('a0000000-0000-4000-8000-000000000003', 'Calves', 'Legs', 4, 10, 12, null, 60, 5)
+on conflict (template_id, order_index) do update set
+  exercise_name = excluded.exercise_name,
+  exercise_group = excluded.exercise_group,
+  target_sets = excluded.target_sets,
+  rep_min = excluded.rep_min,
+  rep_max = excluded.rep_max,
+  intensity_note = excluded.intensity_note,
+  rest_seconds = excluded.rest_seconds;
 
 -- Active Recovery (4) — minimal rows; mostly notes on template
 insert into public.template_exercises (template_id, exercise_name, exercise_group, target_sets, rep_min, rep_max, intensity_note, rest_seconds, order_index) values
-('a0000000-0000-4000-8000-000000000004', 'Light movement / walk', 'Recovery', 1, 10, 20, 'Easy — follow how you feel', 0, 0);
+('a0000000-0000-4000-8000-000000000004', 'Light movement / walk', 'Recovery', 1, 10, 20, 'Easy — follow how you feel', 0, 0)
+on conflict (template_id, order_index) do update set
+  exercise_name = excluded.exercise_name,
+  exercise_group = excluded.exercise_group,
+  target_sets = excluded.target_sets,
+  rep_min = excluded.rep_min,
+  rep_max = excluded.rep_max,
+  intensity_note = excluded.intensity_note,
+  rest_seconds = excluded.rest_seconds;
 
 -- Strength Chest (5)
 insert into public.template_exercises (template_id, exercise_name, exercise_group, target_sets, rep_min, rep_max, intensity_note, rest_seconds, order_index) values
@@ -142,7 +177,15 @@ insert into public.template_exercises (template_id, exercise_name, exercise_grou
 ('a0000000-0000-4000-8000-000000000005', 'Flat Dumbbell Press', 'Chest', 6, 4, 6, '60–80% 1RM', 150, 3),
 ('a0000000-0000-4000-8000-000000000005', 'Incline Dumbbell Press', 'Chest', 6, 4, 6, '60–80% 1RM', 150, 4),
 ('a0000000-0000-4000-8000-000000000005', 'Tricep Rope Pulldowns', 'Triceps', 4, 10, 12, null, 90, 5),
-('a0000000-0000-4000-8000-000000000005', 'Tricep Bar Pressdowns', 'Triceps', 4, 10, 12, null, 90, 6);
+('a0000000-0000-4000-8000-000000000005', 'Tricep Bar Pressdowns', 'Triceps', 4, 10, 12, null, 90, 6)
+on conflict (template_id, order_index) do update set
+  exercise_name = excluded.exercise_name,
+  exercise_group = excluded.exercise_group,
+  target_sets = excluded.target_sets,
+  rep_min = excluded.rep_min,
+  rep_max = excluded.rep_max,
+  intensity_note = excluded.intensity_note,
+  rest_seconds = excluded.rest_seconds;
 
 -- Strength Back (6)
 insert into public.template_exercises (template_id, exercise_name, exercise_group, target_sets, rep_min, rep_max, intensity_note, rest_seconds, order_index) values
@@ -152,7 +195,15 @@ insert into public.template_exercises (template_id, exercise_name, exercise_grou
 ('a0000000-0000-4000-8000-000000000006', 'Back Extensions', 'Back', 2, 8, 12, null, 90, 3),
 ('a0000000-0000-4000-8000-000000000006', 'Seated Good Mornings', 'Back', 2, 8, 12, null, 90, 4),
 ('a0000000-0000-4000-8000-000000000006', 'Bicep Curls', 'Biceps', 6, 4, 6, null, 120, 5),
-('a0000000-0000-4000-8000-000000000006', 'Hammer Curls', 'Biceps', 6, 4, 6, null, 120, 6);
+('a0000000-0000-4000-8000-000000000006', 'Hammer Curls', 'Biceps', 6, 4, 6, null, 120, 6)
+on conflict (template_id, order_index) do update set
+  exercise_name = excluded.exercise_name,
+  exercise_group = excluded.exercise_group,
+  target_sets = excluded.target_sets,
+  rep_min = excluded.rep_min,
+  rep_max = excluded.rep_max,
+  intensity_note = excluded.intensity_note,
+  rest_seconds = excluded.rest_seconds;
 
 -- Strength Legs (7)
 insert into public.template_exercises (template_id, exercise_name, exercise_group, target_sets, rep_min, rep_max, intensity_note, rest_seconds, order_index) values
@@ -161,8 +212,24 @@ insert into public.template_exercises (template_id, exercise_name, exercise_grou
 ('a0000000-0000-4000-8000-000000000007', 'Goblet Squats', 'Legs', 6, 4, 6, null, 120, 2),
 ('a0000000-0000-4000-8000-000000000007', 'Hamstring Curls', 'Legs', 3, 10, 12, '40–75% 1RM', 90, 3),
 ('a0000000-0000-4000-8000-000000000007', 'Leg Extensions', 'Legs', 3, 10, 12, '40–75% 1RM', 90, 4),
-('a0000000-0000-4000-8000-000000000007', 'Calves', 'Legs', 4, 10, 12, null, 60, 5);
+('a0000000-0000-4000-8000-000000000007', 'Calves', 'Legs', 4, 10, 12, null, 60, 5)
+on conflict (template_id, order_index) do update set
+  exercise_name = excluded.exercise_name,
+  exercise_group = excluded.exercise_group,
+  target_sets = excluded.target_sets,
+  rep_min = excluded.rep_min,
+  rep_max = excluded.rep_max,
+  intensity_note = excluded.intensity_note,
+  rest_seconds = excluded.rest_seconds;
 
 -- Active Recovery slot 8 — same day intent as rotation slot 4
 insert into public.template_exercises (template_id, exercise_name, exercise_group, target_sets, rep_min, rep_max, intensity_note, rest_seconds, order_index) values
-('a0000000-0000-4000-8000-000000000008', 'Light movement / walk', 'Recovery', 1, 10, 20, 'Easy — follow how you feel', 0, 0);
+('a0000000-0000-4000-8000-000000000008', 'Light movement / walk', 'Recovery', 1, 10, 20, 'Easy — follow how you feel', 0, 0)
+on conflict (template_id, order_index) do update set
+  exercise_name = excluded.exercise_name,
+  exercise_group = excluded.exercise_group,
+  target_sets = excluded.target_sets,
+  rep_min = excluded.rep_min,
+  rep_max = excluded.rep_max,
+  intensity_note = excluded.intensity_note,
+  rest_seconds = excluded.rest_seconds;

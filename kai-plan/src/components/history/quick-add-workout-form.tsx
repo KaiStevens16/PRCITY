@@ -10,6 +10,7 @@ import { todayLocalDateString } from "@/lib/date";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Trash2 } from "lucide-react";
 
 type Props = {
   workoutOptions: { id: string; name: string }[];
@@ -145,12 +146,31 @@ Incline bench
                 return (
                   <div key={ex.exerciseName} className="rounded-lg border border-border/50 p-2">
                     <p className="mb-2 text-sm font-medium">{ex.exerciseName}</p>
+                    <div className="mb-2 flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={() => {
+                          setTemplateDraft((d) => ({
+                            ...d,
+                            [ex.exerciseName]: [
+                              ...rows,
+                              { weightText: "", repsText: "" },
+                            ],
+                          }));
+                        }}
+                      >
+                        + Add set
+                      </Button>
+                    </div>
                     <div className="grid gap-2">
                       {rows.map((row, idx) => (
                         <div key={`${ex.exerciseName}-${idx}`} className="flex items-center gap-2">
                           <span className="w-8 text-xs text-muted-foreground">#{idx + 1}</span>
                           <Input
-                            placeholder="wt / bw"
+                            placeholder="Weight"
                             value={row.weightText}
                             onChange={(e) => {
                               const next = [...rows];
@@ -169,6 +189,21 @@ Incline bench
                             }}
                             className="h-8"
                           />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 shrink-0 text-destructive hover:bg-destructive/10"
+                            disabled={rows.length <= 1}
+                            aria-label="Remove set row"
+                            onClick={() => {
+                              if (rows.length <= 1) return;
+                              const next = rows.filter((_, i) => i !== idx);
+                              setTemplateDraft((d) => ({ ...d, [ex.exerciseName]: next }));
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       ))}
                     </div>

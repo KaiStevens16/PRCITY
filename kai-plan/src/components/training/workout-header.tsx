@@ -171,15 +171,6 @@ export function WorkoutHeader({
       </div>
 
       <div className="mb-8 space-y-4">
-        {template.preworkout_note && (
-          <div className="rounded-xl border border-amber-500/20 bg-gradient-to-br from-amber-500/[0.07] to-transparent p-4 text-sm leading-relaxed text-amber-50/95">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/95">
-              Fuel
-            </p>
-            <p className="mt-2">{template.preworkout_note}</p>
-          </div>
-        )}
-
         {template.warmup_note && (
           <div className="rounded-xl border border-border/60 bg-card/40 p-4 text-sm leading-relaxed">
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">

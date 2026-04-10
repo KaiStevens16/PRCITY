@@ -79,7 +79,6 @@ export async function updateWorkoutTemplate(input: {
   id: string;
   name?: string;
   estimated_duration_minutes?: number;
-  preworkout_note?: string | null;
   warmup_note?: string | null;
 }) {
   const supabase = createClient();
@@ -87,7 +86,6 @@ export async function updateWorkoutTemplate(input: {
   if (input.name !== undefined) patch.name = input.name;
   if (input.estimated_duration_minutes !== undefined)
     patch.estimated_duration_minutes = input.estimated_duration_minutes;
-  if (input.preworkout_note !== undefined) patch.preworkout_note = input.preworkout_note;
   if (input.warmup_note !== undefined) patch.warmup_note = input.warmup_note;
 
   const { error } = await supabase
@@ -97,6 +95,7 @@ export async function updateWorkoutTemplate(input: {
   if (error) return { error: error.message };
   revalidatePath("/program");
   revalidatePath("/today");
+  revalidatePath("/lifts");
   return { ok: true };
 }
 
@@ -129,6 +128,7 @@ export async function updateTemplateExercise(input: {
   if (error) return { error: error.message };
   revalidatePath("/program");
   revalidatePath("/today");
+  revalidatePath("/lifts");
   return { ok: true };
 }
 
@@ -171,5 +171,7 @@ export async function reorderTemplateExercise(
     .eq("id", a.id);
 
   revalidatePath("/program");
+  revalidatePath("/today");
+  revalidatePath("/lifts");
   return { ok: true };
 }

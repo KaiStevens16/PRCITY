@@ -186,6 +186,8 @@ export default async function TodayPage({ searchParams }: TodayPageProps) {
               key={r.se.id}
               phase={headerTemplate.phase}
               index={i}
+              sessionId={session.id}
+              afterOrderIndex={r.se.order_index}
               sessionExercise={r.se}
               sets={r.sets}
               lastTime={r.lastTime}

@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getSoloUserId } from "@/lib/solo-user";
 import { todayLocalDateString } from "@/lib/date";
-import { nextRotationIndex } from "@/lib/rotation";
+import { nextRotationIndex, nextRotationIndexAfterTemplate } from "@/lib/rotation";
 import { revalidatePath } from "next/cache";
 
 function revalidateAll() {
@@ -137,16 +137,38 @@ export async function completeSession(input: {
 
   if (error) return { error: error.message };
 
+  const { data: completedRow } = await supabase
+    .from("sessions")
+    .select("template_id")
+    .eq("id", input.sessionId)
+    .eq("user_id", userId)
+    .single();
+
   const { data: state } = await supabase
     .from("program_state")
     .select("current_rotation_index")
     .eq("user_id", userId)
     .single();
 
-  const next = nextRotationIndex(state?.current_rotation_index ?? 0);
+  let nextIndex: number;
+  if (completedRow?.template_id) {
+    const { data: wt } = await supabase
+      .from("workout_templates")
+      .select("rotation_order")
+      .eq("id", completedRow.template_id)
+      .maybeSingle();
+    if (wt?.rotation_order != null) {
+      nextIndex = nextRotationIndexAfterTemplate(wt.rotation_order);
+    } else {
+      nextIndex = nextRotationIndex(state?.current_rotation_index ?? 0);
+    }
+  } else {
+    nextIndex = nextRotationIndex(state?.current_rotation_index ?? 0);
+  }
+
   await supabase
     .from("program_state")
-    .update({ current_rotation_index: next })
+    .update({ current_rotation_index: nextIndex })
     .eq("user_id", userId);
 
   revalidateAll();
@@ -314,6 +336,74 @@ export async function removeSessionExercise(sessionExerciseId: string) {
   return { ok: true };
 }
 
+/** Insert a new exercise after `afterOrderIndex` (session-only; does not change templates). */
+export async function addSessionExerciseAfter(input: {
+  sessionId: string;
+  afterOrderIndex: number;
+  exerciseName: string;
+}) {
+  const supabase = createClient();
+  const userId = getSoloUserId();
+  const name = input.exerciseName.trim();
+  if (!name) return { error: "Exercise name is required." };
+
+  const { data: sess, error: sessErr } = await supabase
+    .from("sessions")
+    .select("id, status")
+    .eq("id", input.sessionId)
+    .eq("user_id", userId)
+    .single();
+
+  if (sessErr || !sess) return { error: "Session not found." };
+  if (sess.status !== "in_progress") {
+    return { error: "You can only add lifts during an in-progress session." };
+  }
+
+  const newOrder = input.afterOrderIndex + 1;
+
+  const { data: shiftRows, error: shiftErr } = await supabase
+    .from("session_exercises")
+    .select("id, order_index")
+    .eq("session_id", input.sessionId)
+    .gte("order_index", newOrder)
+    .order("order_index", { ascending: false });
+
+  if (shiftErr) return { error: shiftErr.message };
+
+  for (const row of shiftRows ?? []) {
+    const { error: upErr } = await supabase
+      .from("session_exercises")
+      .update({ order_index: row.order_index + 1 })
+      .eq("id", row.id);
+    if (upErr) return { error: upErr.message };
+  }
+
+  const { data: seRow, error: insErr } = await supabase
+    .from("session_exercises")
+    .insert({
+      session_id: input.sessionId,
+      template_exercise_id: null,
+      planned_exercise_name: name,
+      actual_exercise_name: name,
+      order_index: newOrder,
+      completed: false,
+    })
+    .select("id")
+    .single();
+
+  if (insErr || !seRow) return { error: insErr?.message ?? "Failed to add exercise." };
+
+  const { error: logErr } = await supabase.from("set_logs").insert({
+    session_exercise_id: seRow.id,
+    set_number: 1,
+    completed: false,
+  });
+  if (logErr) return { error: logErr.message };
+
+  revalidateAll();
+  return { ok: true };
+}
+
 export async function updateSessionFields(input: {
   sessionId: string;
   sessionNotes?: string | null;
@@ -396,10 +486,10 @@ export async function quickCompleteRestDay(templateId: string) {
 
   if (se || !session) return { error: se?.message ?? "Failed" };
 
-  const next = nextRotationIndex(state?.current_rotation_index ?? 0);
+  const nextIndex = nextRotationIndexAfterTemplate(template.rotation_order);
   await supabase
     .from("program_state")
-    .update({ current_rotation_index: next })
+    .update({ current_rotation_index: nextIndex })
     .eq("user_id", userId);
 
   revalidateAll();

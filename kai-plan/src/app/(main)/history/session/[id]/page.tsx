@@ -9,6 +9,7 @@ import { phaseBadgeVariant } from "@/lib/rotation";
 import { formatLongDate } from "@/lib/date";
 import { SessionWeirdDayControls } from "@/components/history/session-weird-day-controls";
 import { HistoryWorkoutSimple } from "@/components/history/history-workout-simple";
+import { CopySessionWorkoutButton } from "@/components/history/copy-session-workout-button";
 import { HistoryDeleteSession } from "@/components/history/history-delete-session";
 import { getHistorySessionWorkout } from "@/app/actions/history-workout";
 
@@ -106,6 +107,11 @@ export default async function SessionDetailPage({ params }: Props) {
           weirdDay={session.weird_day === true}
           weirdDayNotes={session.weird_day_notes}
         />
+        {workout.ok && blocks?.length ? (
+          <div className="mt-4">
+            <CopySessionWorkoutButton blocks={blocks} />
+          </div>
+        ) : null}
       </div>
 
       {workout.ok ? (

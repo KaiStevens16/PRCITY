@@ -12,6 +12,22 @@ export function nextRotationIndex(current: number): number {
   return (current + 1) % ROTATION_LENGTH;
 }
 
+/** Map `workout_templates.rotation_order` (1–8) to the 0-based index used in `program_state`. */
+export function rotationIndexFromOrder(rotationOrder: number): number {
+  const o = Math.round(rotationOrder);
+  if (!Number.isFinite(o)) return 0;
+  const zero = (((o - 1) % ROTATION_LENGTH) + ROTATION_LENGTH) % ROTATION_LENGTH;
+  return zero;
+}
+
+/** After completing a session for a template, the next scheduled slot in the cycle. */
+export function nextRotationIndexAfterTemplate(rotationOrder: number | null | undefined): number {
+  if (rotationOrder == null || !Number.isFinite(rotationOrder)) {
+    return nextRotationIndex(0);
+  }
+  return nextRotationIndex(rotationIndexFromOrder(rotationOrder));
+}
+
 export function prevRotationIndex(current: number): number {
   return (current - 1 + ROTATION_LENGTH) % ROTATION_LENGTH;
 }

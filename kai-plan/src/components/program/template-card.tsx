@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,17 +29,19 @@ export function ProgramTemplateCard({ template, exercises, isCurrent }: Props) {
   const [open, setOpen] = useState(isCurrent);
   const [name, setName] = useState(template.name);
   const [dur, setDur] = useState(String(template.estimated_duration_minutes));
-  const [pre, setPre] = useState(template.preworkout_note ?? "");
   const [warm, setWarm] = useState(template.warmup_note ?? "");
 
   async function saveMeta() {
-    await updateWorkoutTemplate({
+    const r = await updateWorkoutTemplate({
       id: template.id,
       name,
       estimated_duration_minutes: parseInt(dur, 10) || 0,
-      preworkout_note: pre || null,
       warmup_note: warm || null,
     });
+    if (r && "error" in r && r.error) {
+      window.alert(r.error);
+      return;
+    }
     router.refresh();
   }
 
@@ -98,10 +100,6 @@ export function ProgramTemplateCard({ template, exercises, isCurrent }: Props) {
               <Input value={dur} onChange={(e) => setDur(e.target.value)} type="number" />
             </div>
             <div className="space-y-2 md:col-span-2">
-              <Label>Pre-workout note</Label>
-              <Textarea value={pre} onChange={(e) => setPre(e.target.value)} rows={3} />
-            </div>
-            <div className="space-y-2 md:col-span-2">
               <Label>Warm-up note</Label>
               <Textarea value={warm} onChange={(e) => setWarm(e.target.value)} rows={2} />
             </div>
@@ -145,8 +143,25 @@ function ExerciseRow({
   );
   const [intensity, setIntensity] = useState(exercise.intensity_note ?? "");
 
+  useEffect(() => {
+    setName(exercise.exercise_name);
+    setSets(String(exercise.target_sets));
+    setRmin(String(exercise.rep_min));
+    setRmax(String(exercise.rep_max));
+    setRestMinutes(String(Math.round((exercise.rest_seconds / 60) * 10) / 10));
+    setIntensity(exercise.intensity_note ?? "");
+  }, [
+    exercise.id,
+    exercise.exercise_name,
+    exercise.target_sets,
+    exercise.rep_min,
+    exercise.rep_max,
+    exercise.rest_seconds,
+    exercise.intensity_note,
+  ]);
+
   async function save() {
-    await updateTemplateExercise({
+    const r = await updateTemplateExercise({
       id: exercise.id,
       exercise_name: name,
       target_sets: parseInt(sets, 10) || 1,
@@ -158,6 +173,10 @@ function ExerciseRow({
       ),
       intensity_note: intensity || null,
     });
+    if (r && "error" in r && r.error) {
+      window.alert(r.error);
+      return;
+    }
     onChanged();
   }
 
