@@ -40,6 +40,22 @@ export type BodyWeightEntry = {
   updated_at: string;
 };
 
+export type DexaScan = {
+  id: string;
+  user_id: string;
+  scan_date: string;
+  body_fat_pct: number;
+  total_mass_lb: number | null;
+  fat_mass_lb: number | null;
+  lean_mass_lb: number | null;
+  bmc_lb: number | null;
+  fat_free_lb: number | null;
+  storage_path: string;
+  original_filename: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ProgramState = {
   id: string;
   user_id: string;

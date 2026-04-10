@@ -4,8 +4,10 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { formatLongDate, todayLocalDateString, toDateString } from "@/lib/date";
 import type { WeightRow } from "@/lib/weight-data";
+import type { DexaScan } from "@/types/database";
 import { saveWeightAction } from "@/app/actions/weight";
 import { WeightTrendChart } from "@/components/weight/weight-trend-chart";
+import { DexaScansSection } from "@/components/weight/dexa-scans-section";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,6 +25,55 @@ function canonicalRows(rows: WeightRow[]): WeightRow[] {
 }
 
 type EditableRow = { id: string; date: string; weight: string; notes: string };
+
+function newEditableRowId(): string {
+  return typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `new-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function isValidIsoDate(d: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(d.trim());
+}
+
+function isEmptyWeightCell(w: string): boolean {
+  const t = w.trim();
+  if (!t) return true;
+  return Number.isNaN(parseFloat(t.replace(/,/g, "")));
+}
+
+/**
+ * Keeps exactly one empty row (for "today") at the top:
+ * - Empty rows from previous days roll to today.
+ * - If top row is already filled and not today, prepend a new empty today row.
+ * - Any additional empty rows are removed.
+ */
+function mergeEnsureTodayRow(rows: EditableRow[], today: string): EditableRow[] {
+  if (rows.length === 0) {
+    return [{ id: newEditableRowId(), date: today, weight: "", notes: "" }];
+  }
+
+  const normalized = rows.map((r) => ({ ...r }));
+
+  // If an empty row already exists, keep it, ensure it is at top, and roll stale date to today.
+  const firstEmptyIdx = normalized.findIndex((r) => isEmptyWeightCell(r.weight));
+  if (firstEmptyIdx >= 0) {
+    const [openRow] = normalized.splice(firstEmptyIdx, 1);
+    const nextOpen =
+      isValidIsoDate(openRow.date) && openRow.date.trim() < today
+        ? { ...openRow, date: today }
+        : openRow;
+    const nonEmptyRows = normalized.filter((r) => !isEmptyWeightCell(r.weight));
+    return [nextOpen, ...nonEmptyRows];
+  }
+
+  const first = normalized[0];
+  if (isValidIsoDate(first.date) && first.date.trim() === today) {
+    return normalized;
+  }
+
+  return [{ id: newEditableRowId(), date: today, weight: "", notes: "" }, ...normalized];
+}
 
 function toEditable(rows: WeightRow[]): EditableRow[] {
   return [...rows].reverse().map((r, i) => ({
@@ -58,23 +109,47 @@ function rowsForSave(rows: EditableRow[]): WeightRow[] {
   return out;
 }
 
-type Props = { initialRows: WeightRow[] };
+type Props = { initialRows: WeightRow[]; initialDexaScans: DexaScan[] };
 
-export function WeightPageClient({ initialRows }: Props) {
-  const [draft, setDraft] = useState<EditableRow[]>(() => toEditable(initialRows));
+export function WeightPageClient({ initialRows, initialDexaScans }: Props) {
+  const [draft, setDraft] = useState<EditableRow[]>(() =>
+    mergeEnsureTodayRow(toEditable(initialRows), todayLocalDateString())
+  );
   const [error, setError] = useState<string | null>(null);
   const [saveHint, setSaveHint] = useState<"idle" | "saved">("idle");
   const [isPending, startTransition] = useTransition();
   const lastSyncedRef = useRef<string>(serializePayload(canonicalRows(initialRows)));
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveHintClearRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const calendarDateRef = useRef(todayLocalDateString());
 
   useEffect(() => {
     const serverKey = serializePayload(canonicalRows(initialRows));
     if (serverKey === lastSyncedRef.current) return;
-    setDraft(toEditable(initialRows));
+    setDraft(mergeEnsureTodayRow(toEditable(initialRows), todayLocalDateString()));
     lastSyncedRef.current = serverKey;
   }, [initialRows]);
+
+  /** Local calendar rollover: ~every minute + when tab wakes (no server; uses device timezone). */
+  useEffect(() => {
+    function applyCalendarDayIfNeeded() {
+      const today = todayLocalDateString();
+      if (today === calendarDateRef.current) return;
+      calendarDateRef.current = today;
+      setDraft((prev) => mergeEnsureTodayRow(prev, today));
+    }
+
+    applyCalendarDayIfNeeded();
+    const intervalId = window.setInterval(applyCalendarDayIfNeeded, 60_000);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") applyCalendarDayIfNeeded();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
 
   const saved = useMemo(() => rowsForSave(draft), [draft]);
 
@@ -120,12 +195,8 @@ export function WeightPageClient({ initialRows }: Props) {
   const todayBanner = formatLongDate(todayLocalDateString());
 
   function addRow() {
-    const id =
-      typeof crypto !== "undefined" && crypto.randomUUID
-        ? crypto.randomUUID()
-        : `new-${Date.now()}`;
     setDraft((prev) => [
-      { id, date: nextDayIsoFromRows(prev), weight: "", notes: "" },
+      { id: newEditableRowId(), date: nextDayIsoFromRows(prev), weight: "", notes: "" },
       ...prev,
     ]);
   }
@@ -207,7 +278,7 @@ export function WeightPageClient({ initialRows }: Props) {
             </CardHeader>
             <CardContent className="pb-6">
               {chartRows.length >= 2 ? (
-                <WeightTrendChart rows={chartRows} />
+                <WeightTrendChart rows={chartRows} dexaScans={initialDexaScans} />
               ) : (
                 <p className="text-sm text-muted-foreground">
                   Add at least two weigh-ins in the Data tab to plot the trend.
@@ -215,6 +286,7 @@ export function WeightPageClient({ initialRows }: Props) {
               )}
             </CardContent>
           </Card>
+          <DexaScansSection initialScans={initialDexaScans} />
         </TabsContent>
 
         <TabsContent value="data" className="mt-5">
