@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getSoloUserId } from "@/lib/solo-user";
 import { todayLocalDateString } from "@/lib/date";
 import { nextRotationIndex, nextRotationIndexAfterTemplate } from "@/lib/rotation";
+import { isRunWarmupExercise } from "@/lib/run-warmup";
 import { revalidatePath } from "next/cache";
 
 function revalidateAll() {
@@ -87,7 +88,13 @@ export async function startSession(templateId: string) {
 
     if (ie || !seRow) continue;
 
-    const initialSetCount = Math.max(1, ex.target_sets + 1);
+    const isRunWarmupSlot =
+      isRunWarmupExercise(ex.exercise_name) &&
+      (ex.exercise_group ?? "").trim().toLowerCase() === "warm-up";
+    /** Strength slots use target+1 working sets; run warm-up is one triplet row only. */
+    const initialSetCount = isRunWarmupSlot
+      ? 1
+      : Math.max(1, ex.target_sets + 1);
     const rows = Array.from({ length: initialSetCount }, (_, i) => ({
       session_exercise_id: seRow.id,
       set_number: i + 1,

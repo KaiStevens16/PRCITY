@@ -336,9 +336,7 @@ export function DexaScansSection({ initialScans }: Props) {
               <Label htmlFor="dexa-bf">Body fat %</Label>
               <Input
                 id="dexa-bf"
-                type="number"
-                step="0.1"
-                inputMode="decimal"
+                type="text"
                 value={form.bodyFatPct}
                 onChange={(e) => setForm((f) => ({ ...f, bodyFatPct: e.target.value }))}
                 className="font-mono tabular-nums"
@@ -361,9 +359,7 @@ export function DexaScansSection({ initialScans }: Props) {
                   <div key={key} className="space-y-1">
                     <Label className="text-xs">{label}</Label>
                     <Input
-                      type="number"
-                      step="0.1"
-                      inputMode="decimal"
+                      type="text"
                       value={val}
                       onChange={(e) =>
                         setForm((f) => ({ ...f, [key]: e.target.value }))

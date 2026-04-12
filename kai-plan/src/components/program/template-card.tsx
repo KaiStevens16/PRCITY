@@ -97,7 +97,7 @@ export function ProgramTemplateCard({ template, exercises, isCurrent }: Props) {
             </div>
             <div className="space-y-2">
               <Label>Est. duration (min)</Label>
-              <Input value={dur} onChange={(e) => setDur(e.target.value)} type="number" />
+              <Input value={dur} onChange={(e) => setDur(e.target.value)} type="text" />
             </div>
             <div className="space-y-2 md:col-span-2">
               <Label>Warm-up note</Label>
@@ -195,15 +195,15 @@ function ExerciseRow({
           </div>
           <div>
             <Label className="text-xs">Sets</Label>
-            <Input className="mt-1" value={sets} onChange={(e) => setSets(e.target.value)} type="number" />
+            <Input className="mt-1" value={sets} onChange={(e) => setSets(e.target.value)} type="text" />
           </div>
           <div>
             <Label className="text-xs">Rep min</Label>
-            <Input className="mt-1" value={rmin} onChange={(e) => setRmin(e.target.value)} type="number" />
+            <Input className="mt-1" value={rmin} onChange={(e) => setRmin(e.target.value)} type="text" />
           </div>
           <div>
             <Label className="text-xs">Rep max</Label>
-            <Input className="mt-1" value={rmax} onChange={(e) => setRmax(e.target.value)} type="number" />
+            <Input className="mt-1" value={rmax} onChange={(e) => setRmax(e.target.value)} type="text" />
           </div>
           <div>
             <Label className="text-xs">Rest (min)</Label>
@@ -211,8 +211,7 @@ function ExerciseRow({
               className="mt-1"
               value={restMinutes}
               onChange={(e) => setRestMinutes(e.target.value)}
-              type="number"
-              step="0.1"
+              type="text"
             />
           </div>
           <div className="sm:col-span-2 lg:col-span-3">

@@ -88,23 +88,6 @@ export default async function HistoryPage() {
     (s) => s.date >= lastMondayStr && s.date <= lastSundayStr
   );
 
-  const { data: sessIds } = await supabase
-    .from("sessions")
-    .select("id")
-    .eq("user_id", userId);
-
-  const ids = (sessIds ?? []).map((s) => s.id);
-  let exerciseNames: string[] = [];
-  if (ids.length) {
-    const { data: sex } = await supabase
-      .from("session_exercises")
-      .select("actual_exercise_name")
-      .in("session_id", ids);
-    exerciseNames = [
-      ...new Set((sex ?? []).map((x) => x.actual_exercise_name)),
-    ].sort((a, b) => a.localeCompare(b));
-  }
-
   const { data: templates } = await supabase
     .from("workout_templates")
     .select("id, name")
@@ -139,14 +122,13 @@ export default async function HistoryPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">History</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          All History, this week, last week, and exercise shortcuts.
+          All history, this week, and last week.
         </p>
       </div>
       <HistoryView
         thisWeek={thisWeek}
         lastWeek={lastWeek}
         allSessions={rows}
-        exerciseNames={exerciseNames}
         workoutOptions={workoutOptions}
         workoutTemplates={workoutTemplates}
       />

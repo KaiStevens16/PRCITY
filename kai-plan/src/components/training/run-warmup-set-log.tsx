@@ -1,15 +1,14 @@
 "use client";
 
-import { useTransition, useEffect, useState, useRef, useCallback } from "react";
-import { Checkbox } from "@/components/ui/checkbox";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { updateRunWarmupSetLog, updateSetLog } from "@/app/actions/training";
+import { updateRunWarmupSetLog } from "@/app/actions/training";
 import type { SetLog } from "@/types/database";
-import { useRouter } from "next/navigation";
 import {
   parseRunWarmupDraft,
   reconcileRunWarmupTriplet,
+  visibleRunWarmupSets,
 } from "@/lib/run-warmup";
 
 type Props = {
@@ -19,23 +18,22 @@ type Props = {
 type Draft = { mi: string; min: string; mph: string };
 
 function draftKey(sets: SetLog[]) {
-  return sets.map((s) => `${s.id}:${s.weight}:${s.reps}:${s.rpe}:${s.completed}`).join("|");
+  return sets.map((s) => `${s.id}:${s.weight}:${s.reps}:${s.rpe}`).join("|");
 }
 
 export function RunWarmupSetLog({ sets }: Props) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
   const [draft, setDraft] = useState<Record<string, Draft>>({});
   const draftRef = useRef<Record<string, Draft>>({});
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const syncKey = useRef("");
 
   useEffect(() => {
-    const k = draftKey(sets);
+    const visible = visibleRunWarmupSets(sets);
+    const k = draftKey(visible);
     if (k === syncKey.current) return;
     syncKey.current = k;
     const next: Record<string, Draft> = {};
-    for (const s of sets) {
+    for (const s of visible) {
       next[s.id] = {
         mi: s.weight != null ? String(s.weight) : "",
         min: s.reps != null ? String(s.reps) : "",
@@ -99,7 +97,8 @@ export function RunWarmupSetLog({ sets }: Props) {
     await saveTriplet(setId, nextRow.mi, nextRow.min, nextRow.mph);
   }
 
-  if (!sets.length) return null;
+  const rows = visibleRunWarmupSets(sets);
+  if (!rows.length) return null;
 
   return (
     <div className="overflow-x-auto rounded-lg border border-border/50 bg-background/30">
@@ -118,11 +117,10 @@ export function RunWarmupSetLog({ sets }: Props) {
             <th className="px-2 py-2">Miles</th>
             <th className="px-2 py-2">Minutes</th>
             <th className="px-2 py-2">Avg mph</th>
-            <th className="px-2 py-2 text-center">Done</th>
           </tr>
         </thead>
-        <tbody className={pending ? "opacity-70" : ""}>
-          {sets.map((s) => {
+        <tbody>
+          {rows.map((s) => {
             const d = draft[s.id] ?? { mi: "", min: "", mph: "" };
             return (
               <tr key={s.id} className="border-b border-border/30">
@@ -133,7 +131,7 @@ export function RunWarmupSetLog({ sets }: Props) {
                   <Label className="sr-only">Miles set {s.set_number}</Label>
                   <Input
                     className="h-9 w-[5rem] border-border/60 bg-card/80 font-mono text-sm tabular-nums"
-                    inputMode="decimal"
+                    type="text"
                     placeholder="mi"
                     value={d.mi}
                     onChange={(e) => updateField(s.id, "mi", e.target.value, d)}
@@ -147,7 +145,7 @@ export function RunWarmupSetLog({ sets }: Props) {
                   <Label className="sr-only">Minutes set {s.set_number}</Label>
                   <Input
                     className="h-9 w-[4.25rem] border-border/60 bg-card/80 font-mono text-sm tabular-nums"
-                    inputMode="numeric"
+                    type="text"
                     placeholder="min"
                     value={d.min}
                     onChange={(e) => updateField(s.id, "min", e.target.value, d)}
@@ -161,28 +159,13 @@ export function RunWarmupSetLog({ sets }: Props) {
                   <Label className="sr-only">Avg mph set {s.set_number}</Label>
                   <Input
                     className="h-9 w-[4.25rem] border-border/60 bg-card/80 font-mono text-sm tabular-nums"
-                    inputMode="decimal"
+                    type="text"
                     placeholder="mph"
                     value={d.mph}
                     onChange={(e) => updateField(s.id, "mph", e.target.value, d)}
                     onBlur={() => {
                       const row = draftRef.current[s.id] ?? { mi: "", min: "", mph: "" };
                       void onBlurRecalc(s.id, row);
-                    }}
-                  />
-                </td>
-                <td className="px-2 py-2 text-center">
-                  <Checkbox
-                    className="border-border/80"
-                    checked={s.completed}
-                    onCheckedChange={(c) => {
-                      startTransition(async () => {
-                        await updateSetLog({
-                          id: s.id,
-                          completed: c === true,
-                        });
-                        router.refresh();
-                      });
                     }}
                   />
                 </td>

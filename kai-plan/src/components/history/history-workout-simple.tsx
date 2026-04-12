@@ -27,6 +27,7 @@ import {
   formatRunHumanLine,
   parseRunWarmupDraft,
   reconcileRunWarmupTriplet,
+  visibleRunWarmupSets,
 } from "@/lib/run-warmup";
 import { cn } from "@/lib/utils";
 
@@ -215,7 +216,7 @@ export function HistoryWorkoutSimple({
                 <p className="font-medium text-foreground/95">{block.title}</p>
                 <div className="mt-1.5 space-y-1 pl-0">
                   {block.isRunWarmup ? (
-                    block.sets.map((s) => (
+                    visibleRunWarmupSets(block.sets).map((s) => (
                       <HistoryRunSetRow
                         key={s.id}
                         set={s}
@@ -313,7 +314,6 @@ function HistoryLiftSetRow({
         value={w}
         onChange={(e) => setW(e.target.value)}
         onBlur={() => void save()}
-        inputMode="text"
         placeholder="bw"
       />
       <span className="text-muted-foreground">for</span>
@@ -322,7 +322,6 @@ function HistoryLiftSetRow({
         value={r}
         onChange={(e) => setR(e.target.value)}
         onBlur={() => void save()}
-        inputMode="numeric"
       />
     </div>
   );
@@ -390,7 +389,6 @@ function HistoryRunSetRow({
           draftRef.current = { ...draftRef.current, min: v };
         }}
         onBlur={onBlurRecalc}
-        inputMode="numeric"
       />
       <span className="text-muted-foreground">min run /</span>
       <Input
@@ -403,7 +401,6 @@ function HistoryRunSetRow({
           draftRef.current = { ...draftRef.current, mi: v };
         }}
         onBlur={onBlurRecalc}
-        inputMode="decimal"
       />
       <span className="text-muted-foreground">mi</span>
     </div>

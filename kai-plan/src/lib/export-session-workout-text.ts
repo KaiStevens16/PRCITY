@@ -3,10 +3,10 @@ import { isBodyweightNote } from "@/lib/bw-set";
 import { formatWeight } from "@/lib/e1rm";
 import { formatRunHumanLine } from "@/lib/run-warmup";
 
-const SEP = "─────────";
+const SEP = "--------";
 
+/** Export lines from logged weight/reps — do not require `completed` (strength UI never toggles it). */
 function formatStrengthSet(s: HistoryWorkoutSet): string | null {
-  if (!s.completed) return null;
   const note = (s.setNote ?? "").trim();
   const isBw = s.weight == null && isBodyweightNote(note);
   const reps = s.reps != null && !Number.isNaN(Number(s.reps)) ? Math.round(Number(s.reps)) : null;
@@ -26,23 +26,22 @@ function formatStrengthSet(s: HistoryWorkoutSet): string | null {
 }
 
 function formatRunSet(s: HistoryWorkoutSet): string | null {
-  if (!s.completed) return null;
   const line = formatRunHumanLine(s.weight, s.reps);
   return line === "—" ? null : line;
 }
 
-/** Plain-text export: lift name, then "weight for reps" lines, separators between lifts. */
+/** Plain-text export: exercise name, then set lines, separators between exercises. */
 export function buildSessionWorkoutExportText(blocks: HistoryWorkoutBlock[]): string {
   const parts: string[] = [];
   for (const b of blocks) {
-    const lines: string[] = [b.title];
+    const setLines: string[] = [];
     for (const s of b.sets) {
       const line = b.isRunWarmup ? formatRunSet(s) : formatStrengthSet(s);
-      if (line) lines.push(line);
+      if (line) setLines.push(line);
     }
-    if (lines.length > 1) {
-      parts.push(lines.join("\n"));
-    }
+    if (!setLines.length) continue;
+
+    parts.push([b.title, ...setLines].join("\n"));
   }
   return parts.join(`\n${SEP}\n`);
 }

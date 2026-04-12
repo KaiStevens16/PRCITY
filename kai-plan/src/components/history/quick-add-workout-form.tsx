@@ -94,14 +94,13 @@ export function QuickAddWorkoutForm({
                 onChange={(e) => setLiftName(e.target.value)}
               />
               <Input
-                type="number"
-                step="0.1"
+                type="text"
                 placeholder="Weight"
                 value={weight}
                 onChange={(e) => setWeight(e.target.value)}
               />
               <Input
-                type="number"
+                type="text"
                 placeholder="Reps"
                 value={reps}
                 onChange={(e) => setReps(e.target.value)}

@@ -321,9 +321,7 @@ export function WeightPageClient({ initialRows, initialDexaScans }: Props) {
                           className="h-9 border-border/60 bg-background/50 font-mono text-xs"
                         />
                         <Input
-                          type="number"
-                          step="0.1"
-                          inputMode="decimal"
+                          type="text"
                           placeholder="Weight"
                           value={r.weight}
                           onChange={(e) => updateRow(r.id, { weight: e.target.value })}
@@ -377,9 +375,7 @@ export function WeightPageClient({ initialRows, initialDexaScans }: Props) {
                         </td>
                         <td className="p-2 align-middle">
                           <Input
-                            type="number"
-                            step="0.1"
-                            inputMode="decimal"
+                            type="text"
                             placeholder="—"
                             value={r.weight}
                             onChange={(e) => updateRow(r.id, { weight: e.target.value })}

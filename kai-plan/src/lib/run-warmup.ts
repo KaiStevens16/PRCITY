@@ -4,6 +4,18 @@ export function isRunWarmupExercise(name: string): boolean {
   return name.trim().toLowerCase() === "run";
 }
 
+/** Hide trailing empty run rows (legacy templates created target_sets+1 sets). */
+export function visibleRunWarmupSets<
+  T extends { weight: number | null; reps: number | null; rpe: number | null },
+>(sets: T[]): T[] {
+  if (!sets.length) return [];
+  const empty = (s: T) =>
+    s.weight == null && s.reps == null && (s.rpe == null || Number(s.rpe) === 0);
+  let end = sets.length;
+  while (end > 1 && empty(sets[end - 1]!)) end -= 1;
+  return sets.slice(0, end);
+}
+
 /** Stored in set_logs: weight = miles, reps = minutes (int), rpe = average mph */
 /** One-line copy e.g. "10 min run / 1 mile" */
 export function formatRunHumanLine(
@@ -39,9 +51,8 @@ export function formatRunWarmupSummary(
 }
 
 export function formatRunHistorySetLine(
-  log: Pick<SetLog, "set_number" | "weight" | "reps" | "rpe" | "completed">
+  log: Pick<SetLog, "set_number" | "weight" | "reps" | "rpe">
 ): string {
-  if (!log.completed) return `Set ${log.set_number} —`;
   const s = formatRunWarmupSummary(log.weight, log.reps, log.rpe);
   return s ?? `Set ${log.set_number} —`;
 }
@@ -87,7 +98,6 @@ export function reconcileRunWarmupTriplet(input: {
 export function formatLastTimeRunRows(rows: LastSetPerformanceRow[]): string {
   const parts: string[] = [];
   for (const r of rows) {
-    if (!r.completed) continue;
     const s = formatRunWarmupSummary(r.weight, r.reps, r.rpe);
     if (s) parts.push(s);
   }

@@ -1,9 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
-import { exerciseSlug } from "@/lib/slug";
 import { HistorySessionTable } from "@/components/history/history-session-table";
 import { QuickAddWorkoutForm } from "@/components/history/quick-add-workout-form";
 
@@ -25,7 +23,6 @@ type Props = {
   thisWeek: SessionRow[];
   lastWeek: SessionRow[];
   allSessions: SessionRow[];
-  exerciseNames: string[];
   workoutOptions: { id: string; name: string }[];
   workoutTemplates: {
     id: string;
@@ -38,7 +35,6 @@ export function HistoryView({
   thisWeek,
   lastWeek,
   allSessions,
-  exerciseNames,
   workoutOptions,
   workoutTemplates,
 }: Props) {
@@ -55,9 +51,6 @@ export function HistoryView({
         </TabsTrigger>
         <TabsTrigger value="last" className="rounded-lg data-[state=active]:shadow-sm">
           Last week
-        </TabsTrigger>
-        <TabsTrigger value="exercises" className="rounded-lg data-[state=active]:shadow-sm">
-          By exercise
         </TabsTrigger>
       </TabsList>
       <TabsContent value="all">
@@ -78,29 +71,6 @@ export function HistoryView({
         <Card className="border-border/60 bg-card/80">
           <CardContent className="pt-6">
             <HistorySessionTable rows={lastWeek} />
-          </CardContent>
-        </Card>
-      </TabsContent>
-      <TabsContent value="exercises">
-        <Card className="border-border/60 bg-card/80">
-          <CardContent className="pt-6">
-            <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {exerciseNames.map((n) => (
-                <li key={n}>
-                  <Link
-                    href={`/lifts/${exerciseSlug(n)}`}
-                    className="block rounded-xl border border-border/50 bg-background/30 px-3 py-2.5 text-sm font-medium shadow-sm transition-colors hover:border-border hover:bg-muted/30"
-                  >
-                    {n}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-            {!exerciseNames.length && (
-              <p className="text-sm text-muted-foreground">
-                Complete sessions to populate exercises.
-              </p>
-            )}
           </CardContent>
         </Card>
       </TabsContent>

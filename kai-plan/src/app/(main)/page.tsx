@@ -86,7 +86,6 @@ export default async function CommandCenterPage() {
         .from("set_logs")
         .select("weight")
         .in("session_exercise_id", runSeIds)
-        .eq("completed", true)
         .not("weight", "is", null);
       weekRunMiles = (mileLogs ?? []).reduce((a, x) => a + Number(x.weight), 0);
     }
