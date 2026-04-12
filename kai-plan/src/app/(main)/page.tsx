@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RotationControls } from "@/components/dashboard/rotation-controls";
+import { RecentSessionRow } from "@/components/dashboard/recent-session-row";
 import {
   todayLocalDateString,
   startOfWeekMonday,
@@ -322,14 +323,10 @@ export default async function CommandCenterPage() {
                 const weird = s.weird_day === true;
                 return (
                   <li key={s.id}>
-                    <Link
+                    <RecentSessionRow
+                      sessionId={s.id}
                       href={`/history/session/${s.id}`}
-                      className={cn(
-                        "group flex justify-between gap-2 rounded-lg border px-2 py-1.5 text-sm transition-colors hover:border-border/60",
-                        weird
-                          ? "border-amber-500/35 bg-amber-500/10 hover:bg-amber-500/15"
-                          : "border-emerald-500/30 bg-emerald-500/[0.08] hover:bg-emerald-500/12"
-                      )}
+                      weird={weird}
                     >
                       <span
                         className={cn(
@@ -354,7 +351,7 @@ export default async function CommandCenterPage() {
                       >
                         {s.split}
                       </span>
-                    </Link>
+                    </RecentSessionRow>
                   </li>
                 );
               })}
