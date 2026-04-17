@@ -13,6 +13,7 @@ import {
   isBodyweightNote,
   noteDraftFromSet,
   parseWeightInput,
+  weightDraftFromSet,
 } from "@/lib/bw-set";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
@@ -44,7 +45,7 @@ export function SetLogTable({ sessionExerciseId, sets }: Props) {
     const next: Record<string, Draft> = {};
     for (const s of sets) {
       next[s.id] = {
-        w: s.weight != null ? String(s.weight) : "",
+        w: weightDraftFromSet(s.weight, s.set_note),
         r: s.reps != null ? String(s.reps) : "",
         n: noteDraftFromSet(s.set_note),
       };

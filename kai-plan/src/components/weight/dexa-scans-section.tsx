@@ -88,7 +88,11 @@ export function DexaScansSection({ initialScans }: Props) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    if (file.type !== "application/pdf") {
+    const looksPdf =
+      file.type === "application/pdf" ||
+      file.type === "application/octet-stream" ||
+      file.name.toLowerCase().endsWith(".pdf");
+    if (!looksPdf) {
       setError("Please choose a PDF file.");
       return;
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
@@ -41,6 +41,11 @@ type Props = {
   embedded?: boolean;
   /** Session-level notes (e.g. from History row expand). */
   sessionNotes?: string | null;
+  /** Weird day flag when parent already knows it (e.g. history list row + same fetch as initialBlocks). */
+  initialWeirdDay?: boolean;
+  initialWeirdDayNotes?: string | null;
+  /** Hide session-level weird banner (e.g. session detail page already shows it above the card). */
+  suppressSessionWeirdBanner?: boolean;
 };
 
 function HistorySessionNoteSection({
@@ -98,6 +103,9 @@ export function HistoryWorkoutSimple({
   showSessionPageLink = true,
   embedded = false,
   sessionNotes,
+  initialWeirdDay = false,
+  initialWeirdDayNotes = null,
+  suppressSessionWeirdBanner = false,
 }: Props) {
   const router = useRouter();
   const [blocks, setBlocks] = useState<HistoryWorkoutBlock[] | null>(
@@ -105,6 +113,13 @@ export function HistoryWorkoutSimple({
   );
   const [loading, setLoading] = useState(!initialBlocks);
   const [err, setErr] = useState<string | null>(null);
+  const [sessionWeird, setSessionWeird] = useState<{
+    day: boolean;
+    notes: string | null;
+  }>({
+    day: initialWeirdDay === true,
+    notes: initialWeirdDayNotes ?? null,
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -113,11 +128,20 @@ export function HistoryWorkoutSimple({
     if (!r.ok) {
       setErr(r.error);
       setBlocks([]);
+      setSessionWeird({ day: false, notes: null });
     } else {
       setBlocks(r.blocks);
+      setSessionWeird({ day: r.weirdDay, notes: r.weirdDayNotes });
     }
     setLoading(false);
   }, [sessionId]);
+
+  useEffect(() => {
+    setSessionWeird({
+      day: initialWeirdDay === true,
+      notes: initialWeirdDayNotes ?? null,
+    });
+  }, [initialWeirdDay, initialWeirdDayNotes]);
 
   useEffect(() => {
     if (initialBlocks) {
@@ -142,10 +166,23 @@ export function HistoryWorkoutSimple({
     />
   );
 
+  const weirdDayCallout =
+    !suppressSessionWeirdBanner && sessionWeird.day ? (
+      <div className="mb-4 rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2.5">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-200/90">
+          Weird day
+        </p>
+        {sessionWeird.notes?.trim() ? (
+          <p className="mt-1.5 text-sm leading-snug text-amber-50/95">{sessionWeird.notes}</p>
+        ) : null}
+      </div>
+    ) : null;
+
   if (loading) {
     return (
       <div className="min-w-0 max-w-full px-3 py-4 sm:px-4">
         {noteSection}
+        {weirdDayCallout}
         <div className="text-sm text-muted-foreground">Loading workout…</div>
       </div>
     );
@@ -154,6 +191,7 @@ export function HistoryWorkoutSimple({
     return (
       <div className="min-w-0 max-w-full px-3 py-4 sm:px-4">
         {noteSection}
+        {weirdDayCallout}
         <div className="text-sm text-amber-200/90">{err}</div>
       </div>
     );
@@ -162,6 +200,7 @@ export function HistoryWorkoutSimple({
     return (
       <div className="min-w-0 max-w-full px-3 py-4 sm:px-4">
         {noteSection}
+        {weirdDayCallout}
         <div className="text-sm text-muted-foreground">No exercises logged.</div>
       </div>
     );
@@ -194,6 +233,7 @@ export function HistoryWorkoutSimple({
         </div>
       )}
       {noteSection}
+      {weirdDayCallout}
       <div className="space-y-0 font-sans text-sm leading-relaxed text-foreground/95">
         {blocks.map((block, bi) => {
           const g = block.exerciseGroup?.trim() || null;
@@ -213,7 +253,19 @@ export function HistoryWorkoutSimple({
                 </p>
               )}
               <div className={cn(showGroup && "mt-2")}>
-                <p className="font-medium text-foreground/95">{block.title}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-medium text-foreground/95">{block.title}</p>
+                  {block.weirdExercise ? (
+                    <span className="rounded border border-amber-500/40 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
+                      Weird lift
+                    </span>
+                  ) : null}
+                </div>
+                {block.weirdExercise && block.weirdExerciseNotes?.trim() ? (
+                  <p className="mt-1 text-xs leading-snug text-muted-foreground">
+                    {block.weirdExerciseNotes}
+                  </p>
+                ) : null}
                 <div className="mt-1.5 space-y-1 pl-0">
                   {block.isRunWarmup ? (
                     visibleRunWarmupSets(block.sets).map((s) => (

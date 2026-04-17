@@ -22,6 +22,8 @@ export type HistoryWorkoutBlock = {
   title: string;
   isRunWarmup: boolean;
   sets: HistoryWorkoutSet[];
+  weirdExercise: boolean;
+  weirdExerciseNotes: string | null;
 };
 
 type SeRow = {
@@ -30,6 +32,8 @@ type SeRow = {
   actual_exercise_name: string;
   planned_exercise_name: string;
   template_exercise_id: string | null;
+  weird_exercise: boolean | null;
+  weird_exercise_notes: string | null;
   template_exercises:
     | { exercise_group: string | null }
     | { exercise_group: string | null }[]
@@ -43,19 +47,31 @@ function exerciseGroupFromRow(r: SeRow): string | null {
 }
 
 export async function getHistorySessionWorkout(sessionId: string): Promise<
-  { ok: true; blocks: HistoryWorkoutBlock[] } | { ok: false; error: string }
+  | {
+      ok: true;
+      blocks: HistoryWorkoutBlock[];
+      weirdDay: boolean;
+      weirdDayNotes: string | null;
+    }
+  | { ok: false; error: string }
 > {
   const supabase = createClient();
   const userId = getSoloUserId();
 
   const { data: session } = await supabase
     .from("sessions")
-    .select("id")
+    .select("id, weird_day, weird_day_notes")
     .eq("id", sessionId)
     .eq("user_id", userId)
     .maybeSingle();
 
   if (!session) return { ok: false, error: "Session not found" };
+
+  const weirdDay = session.weird_day === true;
+  const weirdDayNotes =
+    typeof session.weird_day_notes === "string" && session.weird_day_notes.trim()
+      ? session.weird_day_notes
+      : null;
 
   const { data: sessionExercises, error: seErr } = await supabase
     .from("session_exercises")
@@ -66,6 +82,8 @@ export async function getHistorySessionWorkout(sessionId: string): Promise<
       actual_exercise_name,
       planned_exercise_name,
       template_exercise_id,
+      weird_exercise,
+      weird_exercise_notes,
       template_exercises ( exercise_group )
     `
     )
@@ -76,7 +94,7 @@ export async function getHistorySessionWorkout(sessionId: string): Promise<
 
   const rows = (sessionExercises ?? []) as SeRow[];
   const seIds = rows.map((r) => r.id);
-  if (!seIds.length) return { ok: true, blocks: [] };
+  if (!seIds.length) return { ok: true, blocks: [], weirdDay, weirdDayNotes };
 
   const { data: logs, error: logErr } = await supabase
     .from("set_logs")
@@ -114,10 +132,15 @@ export async function getHistorySessionWorkout(sessionId: string): Promise<
       title: r.actual_exercise_name,
       isRunWarmup: isRun,
       sets: bySe.get(r.id) ?? [],
+      weirdExercise: r.weird_exercise === true,
+      weirdExerciseNotes:
+        typeof r.weird_exercise_notes === "string" && r.weird_exercise_notes.trim()
+          ? r.weird_exercise_notes
+          : null,
     };
   });
 
-  return { ok: true, blocks };
+  return { ok: true, blocks, weirdDay, weirdDayNotes };
 }
 
 export async function quickAddWorkout(input: {

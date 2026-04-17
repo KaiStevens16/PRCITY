@@ -30,9 +30,23 @@ function formatRunSet(s: HistoryWorkoutSet): string | null {
   return line === "—" ? null : line;
 }
 
-/** Plain-text export: exercise name, then set lines, separators between exercises. */
-export function buildSessionWorkoutExportText(blocks: HistoryWorkoutBlock[]): string {
+export type SessionWorkoutExportMeta = {
+  weirdDay?: boolean;
+  weirdDayNotes?: string | null;
+};
+
+/** Plain-text export: optional weird-day header, then exercise blocks (with weird-lift notes). */
+export function buildSessionWorkoutExportText(
+  blocks: HistoryWorkoutBlock[],
+  meta?: SessionWorkoutExportMeta
+): string {
   const parts: string[] = [];
+  if (meta?.weirdDay) {
+    parts.push("Weird day");
+    const n = (meta.weirdDayNotes ?? "").trim();
+    if (n) parts.push(n);
+    parts.push("");
+  }
   for (const b of blocks) {
     const setLines: string[] = [];
     for (const s of b.sets) {
@@ -41,7 +55,11 @@ export function buildSessionWorkoutExportText(blocks: HistoryWorkoutBlock[]): st
     }
     if (!setLines.length) continue;
 
-    parts.push([b.title, ...setLines].join("\n"));
+    const titleLine = b.weirdExercise ? `${b.title} (weird lift)` : b.title;
+    const blockLines = [titleLine, ...setLines];
+    const wn = (b.weirdExerciseNotes ?? "").trim();
+    if (b.weirdExercise && wn) blockLines.push(`  Note: ${wn}`);
+    parts.push(blockLines.join("\n"));
   }
   return parts.join(`\n${SEP}\n`);
 }

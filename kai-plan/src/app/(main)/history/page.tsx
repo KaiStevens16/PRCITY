@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getSoloUserId } from "@/lib/solo-user";
 import { HistoryView, type SessionRow } from "@/components/history/history-view";
 import { startOfWeekMonday, toDateString } from "@/lib/date";
+import { chartPhaseFromTemplate } from "@/lib/program-template-phase";
 
 function embedTemplate(
   rel:
@@ -18,11 +19,13 @@ function toSessionRow(s: {
   id: string;
   date: string;
   status: string;
+  template_id: string | null;
   split: string;
   phase: string;
   duration_minutes: number | null;
   session_notes: string | null;
   weird_day: boolean | null;
+  weird_day_notes: string | null;
   workout_templates:
     | { name: string; phase: string }
     | { name: string; phase: string }[]
@@ -33,12 +36,14 @@ function toSessionRow(s: {
     id: s.id,
     date: s.date,
     status: s.status,
+    template_id: s.template_id,
     split: s.split,
     sessionTitle: wt?.name ?? s.split,
-    phase: wt?.phase ?? s.phase,
+    phase: chartPhaseFromTemplate(wt, s.phase),
     duration_minutes: s.duration_minutes,
     session_notes: s.session_notes,
     weird_day: s.weird_day,
+    weird_day_notes: s.weird_day_notes,
   };
 }
 
@@ -53,11 +58,13 @@ export default async function HistoryPage() {
       id,
       date,
       status,
+      template_id,
       split,
       phase,
       duration_minutes,
       session_notes,
       weird_day,
+      weird_day_notes,
       workout_templates ( name, phase )
     `
     )
@@ -122,7 +129,7 @@ export default async function HistoryPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">History</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          All history, this week, and last week.
+          All history, this week, last week, and compare recent sessions by workout.
         </p>
       </div>
       <HistoryView

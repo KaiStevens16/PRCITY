@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   quickAddWorkout,
   quickAddWorkoutBulk,
@@ -33,7 +33,8 @@ export function QuickAddWorkoutForm({
 }: Props) {
   const [mode, setMode] = useState<"quick" | "template">("quick");
   const [open, setOpen] = useState(false);
-  const [date, setDate] = useState(todayLocalDateString());
+  /** Empty on first paint avoids SSR (server TZ) vs client local-date hydration mismatch. */
+  const [date, setDate] = useState("");
   const [templateId, setTemplateId] = useState(defaultTemplateId ?? workoutOptions[0]?.id ?? "");
   const [liftName, setLiftName] = useState(defaultLiftName);
   const [weight, setWeight] = useState("");
@@ -46,6 +47,10 @@ export function QuickAddWorkoutForm({
   >({});
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setDate((d) => (d ? d : todayLocalDateString()));
+  }, []);
 
   return (
     <div className={compact ? "" : "rounded-xl border border-border/60 bg-card/70 p-4"}>
@@ -214,7 +219,7 @@ Incline bench
           <div className="sm:col-span-2 lg:col-span-4 mt-1 flex items-center gap-2">
             <Button
               type="button"
-              disabled={pending}
+              disabled={pending || !date.trim()}
               onClick={() =>
                 startTransition(async () => {
                   setError(null);

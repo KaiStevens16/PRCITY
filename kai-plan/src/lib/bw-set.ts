@@ -35,14 +35,21 @@ export function formatLiftLineForDisplay(
   completed: boolean
 ): string {
   if (!completed) return "—";
-  if (isBodyweightSet(weight, setNote) && reps != null) return `bw for ${reps}`;
-  if (weight != null && reps != null) return `${formatWeight(Number(weight))} for ${reps}`;
+  if (
+    reps != null &&
+    (isBodyweightNote(setNote) || isBodyweightSet(weight, setNote))
+  ) {
+    return `bw for ${reps}`;
+  }
+  if (weight != null && reps != null && !isBodyweightNote(setNote)) {
+    return `${formatWeight(Number(weight))} for ${reps}`;
+  }
   return "—";
 }
 
-/** Draft weight field: show "bw" when bodyweight set */
+/** Draft weight field: show "bw" when `set_note` marks bodyweight (authoritative vs null weight). */
 export function weightDraftFromSet(weight: number | null, setNote: string | null): string {
-  if (isBodyweightSet(weight, setNote)) return BW_SET_NOTE;
+  if (isBodyweightNote(setNote)) return BW_SET_NOTE;
   if (weight != null) return String(weight);
   return "";
 }

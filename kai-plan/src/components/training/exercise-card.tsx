@@ -13,6 +13,7 @@ import { SubstitutionModal } from "@/components/training/substitution-modal";
 import type { LastSetPerformanceRow, SessionExercise, SetLog } from "@/types/database";
 import { phaseStripeClass } from "@/lib/rotation";
 import { addSessionExerciseAfter, updateSessionExercise } from "@/app/actions/training";
+import { HYPERTROPHY_SQUAT_OR_SLOT } from "@/lib/lifts-chart";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, CloudAlert, Shuffle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -53,6 +54,7 @@ export function ExerciseCard({
 }: Props) {
   const router = useRouter();
   const [pendingAdd, startAddTransition] = useTransition();
+  const [squatPickPending, startSquatPick] = useTransition();
   const [subOpen, setSubOpen] = useState(false);
   const [weirdOpen, setWeirdOpen] = useState(false);
   const [addLiftOpen, setAddLiftOpen] = useState(false);
@@ -165,6 +167,51 @@ export function ExerciseCard({
                 </p>
               </div>
             </div>
+            {sessionExercise.planned_exercise_name === HYPERTROPHY_SQUAT_OR_SLOT && (
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/50 bg-muted/20 px-2.5 py-2">
+                <span className="text-[11px] font-medium text-muted-foreground">This session</span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={
+                    sessionExercise.actual_exercise_name === "Back Squats" ? "secondary" : "outline"
+                  }
+                  className="h-7 px-2.5 text-xs"
+                  disabled={squatPickPending}
+                  onClick={() => {
+                    startSquatPick(async () => {
+                      await updateSessionExercise({
+                        id: sessionExercise.id,
+                        actualExerciseName: "Back Squats",
+                      });
+                      router.refresh();
+                    });
+                  }}
+                >
+                  Back squat
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={
+                    sessionExercise.actual_exercise_name === "Front Squats" ? "secondary" : "outline"
+                  }
+                  className="h-7 px-2.5 text-xs"
+                  disabled={squatPickPending}
+                  onClick={() => {
+                    startSquatPick(async () => {
+                      await updateSessionExercise({
+                        id: sessionExercise.id,
+                        actualExerciseName: "Front Squats",
+                      });
+                      router.refresh();
+                    });
+                  }}
+                >
+                  Front squat
+                </Button>
+              </div>
+            )}
             <LastTimePanel rows={lastTime} mode={runWarmup ? "run" : "default"} />
             <div className="pt-1">
               <Button

@@ -7,11 +7,32 @@ import { phaseBadgeVariant } from "@/lib/rotation";
 import { formatLongDate } from "@/lib/date";
 import type { SessionRow } from "@/components/history/history-view";
 import { HistoryWorkoutSimple } from "@/components/history/history-workout-simple";
-import { HistoryDeleteSession } from "@/components/history/history-delete-session";
+import { SessionHistoryStrip } from "@/components/history/session-history-strip";
+import {
+  HistoryDeleteSessionDialog,
+  HistorySessionDeleteIcon,
+} from "@/components/history/history-delete-session-dialog";
 import { HistoryCopySessionRowButton } from "@/components/history/history-copy-session-row-button";
 import { cn } from "@/lib/utils";
 
 const SWIPE_REVEAL_PX = 80;
+
+/** Same filter as Sort by workout: newest-first list, same template, logged-ish statuses. */
+function sameTemplateRecentSessions(
+  source: SessionRow[],
+  templateId: string | null
+): SessionRow[] {
+  if (!templateId) return [];
+  return source
+    .filter(
+      (row) =>
+        row.template_id === templateId &&
+        (row.status === "completed" ||
+          row.status === "skipped" ||
+          row.status === "in_progress")
+    )
+    .slice(0, 3);
+}
 
 function ignoreRowToggle(target: EventTarget | null) {
   return (target as HTMLElement | null)?.closest("[data-row-toggle-ignore]") != null;
@@ -22,13 +43,17 @@ function HistorySessionMobileRow({
   isOpen,
   editable,
   onToggle,
-  onDeleted,
+  onRequestDelete,
+  weirdDay,
+  weirdDayNotes,
 }: {
   s: SessionRow;
   isOpen: boolean;
   editable: boolean;
   onToggle: () => void;
-  onDeleted: () => void;
+  onRequestDelete: (sessionId: string) => void;
+  weirdDay: boolean;
+  weirdDayNotes: string | null | undefined;
 }) {
   const [dragX, setDragX] = useState(0);
   const dragXRef = useRef(0);
@@ -139,11 +164,7 @@ function HistorySessionMobileRow({
           aria-hidden={dragX === 0}
         >
           <div className="flex flex-1 items-center justify-center py-2">
-            <HistoryDeleteSession
-              sessionId={s.id}
-              variant="icon"
-              onDeleted={onDeleted}
-            />
+            <HistorySessionDeleteIcon onPress={() => onRequestDelete(s.id)} />
           </div>
         </div>
         <div
@@ -193,6 +214,8 @@ function HistorySessionMobileRow({
             sessionId={s.id}
             editable={editable}
             sessionNotes={s.session_notes}
+            initialWeirdDay={weirdDay}
+            initialWeirdDayNotes={weirdDayNotes ?? null}
           />
         </div>
       )}
@@ -200,9 +223,17 @@ function HistorySessionMobileRow({
   );
 }
 
-export function HistorySessionTable({ rows }: { rows: SessionRow[] }) {
+export function HistorySessionTable({
+  rows,
+  /** Full history (newest first) for same-template strip on the top row; not the tab slice. */
+  stripSourceSessions,
+}: {
+  rows: SessionRow[];
+  stripSourceSessions: SessionRow[];
+}) {
   const router = useRouter();
   const [openId, setOpenId] = useState<string | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   if (!rows.length) {
     return <p className="text-sm text-muted-foreground">Nothing here yet.</p>;
@@ -210,6 +241,7 @@ export function HistorySessionTable({ rows }: { rows: SessionRow[] }) {
 
   const onDeleted = () => {
     setOpenId(null);
+    setDeleteTargetId(null);
     router.refresh();
   };
 
@@ -230,7 +262,9 @@ export function HistorySessionTable({ rows }: { rows: SessionRow[] }) {
               isOpen={isOpen}
               editable={editable}
               onToggle={() => setOpenId(isOpen ? null : s.id)}
-              onDeleted={onDeleted}
+              onRequestDelete={setDeleteTargetId}
+              weirdDay={s.weird_day === true}
+              weirdDayNotes={s.weird_day_notes}
             />
           );
         })}
@@ -259,6 +293,10 @@ export function HistorySessionTable({ rows }: { rows: SessionRow[] }) {
                 s.status === "completed" ||
                 s.status === "skipped" ||
                 s.status === "in_progress";
+              const sameTemplateStrip = sameTemplateRecentSessions(
+                stripSourceSessions,
+                s.template_id
+              );
 
               const rowToggle = (e: React.MouseEvent<HTMLTableRowElement>) => {
                 if (ignoreRowToggle(e.target)) return;
@@ -336,22 +374,24 @@ export function HistorySessionTable({ rows }: { rows: SessionRow[] }) {
                         data-row-toggle-ignore
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <HistoryDeleteSession
-                          sessionId={s.id}
-                          variant="icon"
-                          onDeleted={onDeleted}
-                        />
+                        <HistorySessionDeleteIcon onPress={() => setDeleteTargetId(s.id)} />
                       </div>
                     </td>
                   </tr>
                   {isOpen && (
                     <tr className="border-b border-border/30 bg-background/15">
                       <td colSpan={5} className="min-w-0 p-0">
-                        <HistoryWorkoutSimple
-                          sessionId={s.id}
-                          editable={editable}
-                          sessionNotes={s.session_notes}
-                        />
+                        {sameTemplateStrip.length > 0 ? (
+                          <SessionHistoryStrip sessions={sameTemplateStrip} />
+                        ) : (
+                          <HistoryWorkoutSimple
+                            sessionId={s.id}
+                            editable={editable}
+                            sessionNotes={s.session_notes}
+                            initialWeirdDay={s.weird_day === true}
+                            initialWeirdDayNotes={s.weird_day_notes ?? null}
+                          />
+                        )}
                       </td>
                     </tr>
                   )}
@@ -361,6 +401,15 @@ export function HistorySessionTable({ rows }: { rows: SessionRow[] }) {
           </tbody>
         </table>
       </div>
+
+      <HistoryDeleteSessionDialog
+        sessionId={deleteTargetId ?? ""}
+        open={deleteTargetId !== null}
+        onOpenChange={(next) => {
+          if (!next) setDeleteTargetId(null);
+        }}
+        onDeleted={onDeleted}
+      />
     </>
   );
 }

@@ -12,6 +12,7 @@ import { HistoryWorkoutSimple } from "@/components/history/history-workout-simpl
 import { CopySessionWorkoutButton } from "@/components/history/copy-session-workout-button";
 import { HistoryDeleteSession } from "@/components/history/history-delete-session";
 import { getHistorySessionWorkout } from "@/app/actions/history-workout";
+import { chartPhaseFromTemplate } from "@/lib/program-template-phase";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -44,7 +45,7 @@ export default async function SessionDetailPage({ params }: Props) {
       : wtRel
     : null;
   const sessionTitle = template?.name ?? session.split;
-  const displayPhase = template?.phase ?? session.phase;
+  const displayPhase = chartPhaseFromTemplate(template, session.phase);
 
   const workout = await getHistorySessionWorkout(id);
   const blocks = workout.ok ? workout.blocks : null;
@@ -76,11 +77,7 @@ export default async function SessionDetailPage({ params }: Props) {
           <h1 className="min-w-0 flex-1 text-2xl font-bold tracking-tight">
             {sessionTitle}
           </h1>
-          <HistoryDeleteSession
-            sessionId={id}
-            variant="button"
-            deleteRedirectTo="/history"
-          />
+          <HistoryDeleteSession sessionId={id} deleteRedirectTo="/history" />
         </div>
         <div className="mt-2 flex flex-wrap gap-2">
           <Badge variant={phaseBadgeVariant(displayPhase)}>{displayPhase}</Badge>
@@ -109,7 +106,11 @@ export default async function SessionDetailPage({ params }: Props) {
         />
         {workout.ok && blocks?.length ? (
           <div className="mt-4">
-            <CopySessionWorkoutButton blocks={blocks} />
+            <CopySessionWorkoutButton
+              blocks={blocks}
+              weirdDay={workout.weirdDay}
+              weirdDayNotes={workout.weirdDayNotes}
+            />
           </div>
         ) : null}
       </div>
@@ -121,6 +122,9 @@ export default async function SessionDetailPage({ params }: Props) {
               sessionId={id}
               editable={editable}
               initialBlocks={blocks ?? undefined}
+              initialWeirdDay={workout.ok ? workout.weirdDay : false}
+              initialWeirdDayNotes={workout.ok ? workout.weirdDayNotes : null}
+              suppressSessionWeirdBanner
               showSessionPageLink={false}
               embedded
               sessionNotes={session.session_notes}

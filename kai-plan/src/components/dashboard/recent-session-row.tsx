@@ -26,7 +26,10 @@ type Props = {
 async function copyWorkoutText(sessionId: string): Promise<{ ok: true } | { ok: false; message: string }> {
   const r = await getHistorySessionWorkout(sessionId);
   if (!r.ok) return { ok: false, message: r.error };
-  const text = buildSessionWorkoutExportText(r.blocks);
+  const text = buildSessionWorkoutExportText(r.blocks, {
+    weirdDay: r.weirdDay,
+    weirdDayNotes: r.weirdDayNotes,
+  });
   if (!text.trim()) return { ok: false, message: "No workout text to copy yet." };
   try {
     await navigator.clipboard.writeText(text);

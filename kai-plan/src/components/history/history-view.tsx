@@ -3,12 +3,15 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { HistorySessionTable } from "@/components/history/history-session-table";
+import { HistoryByWorkoutView } from "@/components/history/history-by-workout-view";
 import { QuickAddWorkoutForm } from "@/components/history/quick-add-workout-form";
 
 export type SessionRow = {
   id: string;
   date: string;
   status: string;
+  /** `workout_templates.id` when the session was started from a template. */
+  template_id: string | null;
   /** Denormalized from session row (fallback if no template link). */
   split: string;
   /** Same label as Protocol: `workout_templates.name` when `template_id` is set. */
@@ -17,6 +20,7 @@ export type SessionRow = {
   duration_minutes: number | null;
   session_notes: string | null;
   weird_day?: boolean | null;
+  weird_day_notes?: string | null;
 };
 
 type Props = {
@@ -52,25 +56,35 @@ export function HistoryView({
         <TabsTrigger value="last" className="rounded-lg data-[state=active]:shadow-sm">
           Last week
         </TabsTrigger>
+        <TabsTrigger value="by-workout" className="rounded-lg data-[state=active]:shadow-sm">
+          Sort by workout
+        </TabsTrigger>
       </TabsList>
       <TabsContent value="all">
         <Card className="border-border/60 bg-card/80">
           <CardContent className="pt-6">
-            <HistorySessionTable rows={allSessions} />
+            <HistorySessionTable rows={allSessions} stripSourceSessions={allSessions} />
           </CardContent>
         </Card>
       </TabsContent>
       <TabsContent value="this">
         <Card className="border-border/60 bg-card/80">
           <CardContent className="pt-6">
-            <HistorySessionTable rows={thisWeek} />
+            <HistorySessionTable rows={thisWeek} stripSourceSessions={allSessions} />
           </CardContent>
         </Card>
       </TabsContent>
       <TabsContent value="last">
         <Card className="border-border/60 bg-card/80">
           <CardContent className="pt-6">
-            <HistorySessionTable rows={lastWeek} />
+            <HistorySessionTable rows={lastWeek} stripSourceSessions={allSessions} />
+          </CardContent>
+        </Card>
+      </TabsContent>
+      <TabsContent value="by-workout">
+        <Card className="border-border/60 bg-card/80">
+          <CardContent className="pt-6">
+            <HistoryByWorkoutView allSessions={allSessions} workoutOptions={workoutOptions} />
           </CardContent>
         </Card>
       </TabsContent>

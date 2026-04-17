@@ -17,7 +17,10 @@ export function HistoryCopySessionRowButton({ sessionId }: { sessionId: string }
         window.alert(r.error);
         return;
       }
-      const text = buildSessionWorkoutExportText(r.blocks);
+      const text = buildSessionWorkoutExportText(r.blocks, {
+        weirdDay: r.weirdDay,
+        weirdDayNotes: r.weirdDayNotes,
+      });
       if (!text.trim()) {
         window.alert("No completed sets to copy yet.");
         return;

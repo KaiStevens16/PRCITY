@@ -3,15 +3,22 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { HistoryWorkoutBlock } from "@/app/actions/history-workout";
-import { buildSessionWorkoutExportText } from "@/lib/export-session-workout-text";
+import {
+  buildSessionWorkoutExportText,
+  type SessionWorkoutExportMeta,
+} from "@/lib/export-session-workout-text";
 
 type Props = {
   blocks: HistoryWorkoutBlock[];
-};
+} & SessionWorkoutExportMeta;
 
-export function CopySessionWorkoutButton({ blocks }: Props) {
+export function CopySessionWorkoutButton({
+  blocks,
+  weirdDay,
+  weirdDayNotes,
+}: Props) {
   const [msg, setMsg] = useState<string | null>(null);
-  const text = buildSessionWorkoutExportText(blocks);
+  const text = buildSessionWorkoutExportText(blocks, { weirdDay, weirdDayNotes });
 
   if (!text.trim()) return null;
 

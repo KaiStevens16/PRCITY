@@ -1,5 +1,5 @@
 import { formatWeight } from "@/lib/e1rm";
-import { isBodyweightSet } from "@/lib/bw-set";
+import { isBodyweightNote, isBodyweightSet } from "@/lib/bw-set";
 import { formatLongDate } from "@/lib/date";
 import type { LastSetPerformanceRow } from "@/types/database";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,27 @@ type Props = {
   className?: string;
   mode?: "default" | "run";
 };
+
+/**
+ * Show "bw×reps" when set_note marks bw, or when weight is null with reps and
+ * we can infer BW: all sets are unweighted reps, or this set is strictly before
+ * the first plate-weight set (warm-up pull-ups then added weight).
+ */
+function showAsBodyweightLastTime(rows: LastSetPerformanceRow[], r: LastSetPerformanceRow): boolean {
+  if (r.reps == null) return false;
+  if (isBodyweightNote(r.set_note)) return true;
+  if (isBodyweightSet(r.weight, r.set_note)) return true;
+  if (r.weight != null) return false;
+
+  const ordered = [...rows].sort((a, b) => a.set_number - b.set_number);
+  const firstWeighted = ordered.find((x) => x.weight != null && x.reps != null);
+
+  if (firstWeighted != null) {
+    return r.set_number < firstWeighted.set_number;
+  }
+
+  return ordered.every((x) => x.weight == null && x.reps != null);
+}
 
 export function LastTimePanel({ rows, className, mode = "default" }: Props) {
   if (!rows.length) {
@@ -60,16 +81,14 @@ export function LastTimePanel({ rows, className, mode = "default" }: Props) {
             })()
           : rows.map((r) => (
               <li key={r.set_number}>
-                {r.completed &&
-                r.reps != null &&
-                isBodyweightSet(r.weight, r.set_note ?? null) ? (
+                {r.reps != null && showAsBodyweightLastTime(rows, r) ? (
                   <span>
                     bw×{r.reps}
                     {r.rpe != null ? (
                       <span className="text-xs text-muted-foreground"> @{r.rpe}</span>
                     ) : null}
                   </span>
-                ) : r.completed && r.weight != null && r.reps != null ? (
+                ) : r.weight != null && r.reps != null && !isBodyweightNote(r.set_note) ? (
                   <span>
                     {formatWeight(Number(r.weight))}×{r.reps}
                     {r.rpe != null ? (

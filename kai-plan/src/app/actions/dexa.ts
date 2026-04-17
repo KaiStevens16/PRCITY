@@ -4,22 +4,11 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getSoloUserId } from "@/lib/solo-user";
 import { parseDexaReportText, type ParsedDexaBca } from "@/lib/dexa-parse";
+import { extractDexaPdfText, isPdfBuffer } from "@/lib/dexa-pdf-extract";
 import { randomUUID } from "crypto";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const BUCKET = "dexa-scans";
-
-async function extractPdfText(buffer: Buffer): Promise<string> {
-  /** Dynamic import so pdfjs-dist never loads on routes that only import other Dexa actions (e.g. weight autosave + RSC). */
-  const { PDFParse } = await import("pdf-parse");
-  const parser = new PDFParse({ data: new Uint8Array(buffer) });
-  try {
-    const result = await parser.getText();
-    return result.text;
-  } finally {
-    await parser.destroy();
-  }
-}
 
 function readOptionalNum(formData: FormData, key: string): number | null {
   const raw = String(formData.get(key) ?? "").trim();
@@ -40,17 +29,19 @@ export async function previewDexaPdf(formData: FormData): Promise<
   if (!file || !(file instanceof File)) {
     return { error: "Choose a PDF file." };
   }
-  if (file.type !== "application/pdf") {
-    return { error: "File must be a PDF." };
-  }
   if (file.size > MAX_BYTES) {
     return { error: "PDF must be 10 MB or smaller." };
   }
   const buf = Buffer.from(await file.arrayBuffer());
+  if (!isPdfBuffer(buf)) {
+    return { error: "File must be a PDF (missing %PDF header)." };
+  }
   let text: string;
   try {
-    text = await extractPdfText(buf);
-  } catch {
+    text = await extractDexaPdfText(buf);
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : String(e);
+    console.error("[dexa] PDF text extraction failed:", detail);
     return {
       error: "Could not read that PDF. Try another file or enter values manually.",
     };
@@ -72,9 +63,6 @@ export async function saveDexaScan(formData: FormData): Promise<
   const file = formData.get("file");
   if (!file || !(file instanceof File)) {
     return { error: "Missing PDF file. Choose the file again." };
-  }
-  if (file.type !== "application/pdf") {
-    return { error: "File must be a PDF." };
   }
   if (file.size > MAX_BYTES) {
     return { error: "PDF must be 10 MB or smaller." };
@@ -98,6 +86,9 @@ export async function saveDexaScan(formData: FormData): Promise<
   const fat_free_lb = readOptionalNum(formData, "fatFreeLb");
 
   const buf = Buffer.from(await file.arrayBuffer());
+  if (!isPdfBuffer(buf)) {
+    return { error: "File must be a PDF (missing %PDF header)." };
+  }
   const supabase = createClient();
   const userId = getSoloUserId();
   const id = randomUUID();

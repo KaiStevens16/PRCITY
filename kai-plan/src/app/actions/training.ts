@@ -326,6 +326,7 @@ export async function updateSessionExercise(input: {
     .eq("id", input.id);
   if (error) return { error: error.message };
   revalidatePath("/today");
+  revalidatePath("/lifts");
   return { ok: true };
 }
 
