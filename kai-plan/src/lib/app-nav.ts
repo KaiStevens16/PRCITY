@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
+  BookOpen,
   CalendarDays,
   Dumbbell,
   Footprints,
@@ -18,5 +19,6 @@ export const APP_NAV_LINKS: AppNavItem[] = [
   { href: "/lifts", label: "Lifts", icon: Dumbbell },
   { href: "/program", label: "Protocol", icon: ListTree },
   { href: "/weight", label: "Weight", icon: Scale },
+  { href: "/reading", label: "Reading", icon: BookOpen },
   { href: "/steps", label: "Steps", icon: Footprints },
 ];

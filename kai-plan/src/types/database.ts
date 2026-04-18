@@ -40,6 +40,18 @@ export type BodyWeightEntry = {
   updated_at: string;
 };
 
+export type ReadingLogEntry = {
+  id: string;
+  user_id: string;
+  logged_date: string;
+  start_page: number;
+  end_page: number;
+  minutes_read: number;
+  book: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type DexaScan = {
   id: string;
   user_id: string;

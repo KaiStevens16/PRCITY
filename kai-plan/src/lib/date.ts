@@ -51,3 +51,15 @@ export function toDateString(d: Date): string {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
+
+/** Add whole calendar days to a YYYY-MM-DD string (local calendar, no UTC shift). */
+export function addCalendarDays(isoDate: string, deltaDays: number): string {
+  const trimmed = isoDate.trim();
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+  if (!m) return trimmed;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  const dt = new Date(y, mo - 1, d + deltaDays);
+  return toDateString(dt);
+}
