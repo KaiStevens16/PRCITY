@@ -7,6 +7,7 @@ import {
   Footprints,
   LayoutDashboard,
   ListTree,
+  Moon,
   Scale,
 } from "lucide-react";
 
@@ -21,4 +22,5 @@ export const APP_NAV_LINKS: AppNavItem[] = [
   { href: "/weight", label: "Weight", icon: Scale },
   { href: "/reading", label: "Reading", icon: BookOpen },
   { href: "/steps", label: "Steps", icon: Footprints },
+  { href: "/sleep", label: "Sleep", icon: Moon },
 ];

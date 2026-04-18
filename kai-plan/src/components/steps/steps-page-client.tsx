@@ -26,7 +26,7 @@ function SyncFromOuraSubmitButton() {
   );
 }
 
-type OuraQuery = { oura_error?: string; oura_connected?: string };
+type OuraQuery = { oura_error?: string; oura_connected?: string; oura_sleep_error?: string };
 
 type Props = {
   initialRows: OuraStepDayRow[];
@@ -42,6 +42,16 @@ export function StepsPageClient({
   ouraQuery,
 }: Props) {
   const todayBanner = formatLongDate(todayLocalDateString());
+  const sleepErr =
+    typeof ouraQuery.oura_sleep_error === "string"
+      ? (() => {
+          try {
+            return decodeURIComponent(ouraQuery.oura_sleep_error);
+          } catch {
+            return ouraQuery.oura_sleep_error;
+          }
+        })()
+      : undefined;
   const sortedAsc = [...initialRows].sort((a, b) => a.date.localeCompare(b.date));
   const last = sortedAsc.length ? sortedAsc[sortedAsc.length - 1] : null;
   const tableRows = [...sortedAsc].reverse();
@@ -83,6 +93,14 @@ export function StepsPageClient({
           role="status"
         >
           Oura connected — steps synced.
+          {sleepErr ? (
+            <span className="mt-2 block border-t border-emerald-500/25 pt-2 text-amber-100/95">
+              Sleep sync: {sleepErr}
+              {" — "}
+              open the <strong className="font-semibold">Sleep</strong> tab after ensuring your Oura app
+              requests the <strong className="font-semibold">personal</strong> scope, then sync again.
+            </span>
+          ) : null}
         </div>
       ) : null}
 

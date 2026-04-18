@@ -8,6 +8,22 @@ export function normalizeOuraDayColumn(raw: unknown): string | null {
 
 export type OuraStepDayRow = { date: string; steps: number };
 
+export type OuraSleepNightRow = {
+  date: string;
+  sleepScore: number | null;
+  totalSleepSeconds: number | null;
+  deepSeconds: number | null;
+  remSeconds: number | null;
+  lightSeconds: number | null;
+  awakeSeconds: number | null;
+  timeInBedSeconds: number | null;
+  efficiency: number | null;
+  latencySeconds: number | null;
+  bedtimeStart: string | null;
+  bedtimeEnd: string | null;
+  contributors: Record<string, unknown> | null;
+};
+
 export async function loadOuraStepsSeries(): Promise<OuraStepDayRow[]> {
   const supabase = createClient();
   const userId = getSoloUserId();
@@ -65,4 +81,41 @@ export async function loadOuraStepsRange(
     m.set(dayKey, Number(row.steps));
   }
   return m;
+}
+
+export async function loadOuraSleepSeries(): Promise<OuraSleepNightRow[]> {
+  const supabase = createClient();
+  const userId = getSoloUserId();
+  const { data, error } = await supabase
+    .from("oura_daily_sleep")
+    .select(
+      "day, sleep_score, total_sleep_seconds, deep_sleep_seconds, rem_sleep_seconds, light_sleep_seconds, awake_seconds, time_in_bed_seconds, efficiency, latency_seconds, bedtime_start, bedtime_end, contributors_json"
+    )
+    .eq("user_id", userId)
+    .order("day", { ascending: true });
+  if (error) throw new Error(error.message);
+  const out: OuraSleepNightRow[] = [];
+  for (const row of data ?? []) {
+    const date = normalizeOuraDayColumn(row.day);
+    if (!date) continue;
+    const cj = row.contributors_json;
+    const contributors =
+      cj && typeof cj === "object" && !Array.isArray(cj) ? (cj as Record<string, unknown>) : null;
+    out.push({
+      date,
+      sleepScore: row.sleep_score != null ? Number(row.sleep_score) : null,
+      totalSleepSeconds: row.total_sleep_seconds != null ? Number(row.total_sleep_seconds) : null,
+      deepSeconds: row.deep_sleep_seconds != null ? Number(row.deep_sleep_seconds) : null,
+      remSeconds: row.rem_sleep_seconds != null ? Number(row.rem_sleep_seconds) : null,
+      lightSeconds: row.light_sleep_seconds != null ? Number(row.light_sleep_seconds) : null,
+      awakeSeconds: row.awake_seconds != null ? Number(row.awake_seconds) : null,
+      timeInBedSeconds: row.time_in_bed_seconds != null ? Number(row.time_in_bed_seconds) : null,
+      efficiency: row.efficiency != null ? Number(row.efficiency) : null,
+      latencySeconds: row.latency_seconds != null ? Number(row.latency_seconds) : null,
+      bedtimeStart: typeof row.bedtime_start === "string" ? row.bedtime_start : null,
+      bedtimeEnd: typeof row.bedtime_end === "string" ? row.bedtime_end : null,
+      contributors,
+    });
+  }
+  return out;
 }

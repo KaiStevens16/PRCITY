@@ -1,10 +1,10 @@
-import { loadOuraConnection, loadOuraStepsSeries } from "@/lib/oura-data";
+import { loadOuraConnection, loadOuraSleepSeries } from "@/lib/oura-data";
 import { getOuraOAuthEnv } from "@/lib/oura-sync";
-import { StepsPageClient } from "@/components/steps/steps-page-client";
+import { SleepPageClient } from "@/components/sleep/sleep-page-client";
 
 export const dynamic = "force-dynamic";
 
-export default async function StepsPage({
+export default async function SleepPage({
   searchParams,
 }: {
   searchParams: Promise<{
@@ -15,11 +15,10 @@ export default async function StepsPage({
 }) {
   const ouraQuery = await searchParams;
   const ouraConfigured = getOuraOAuthEnv() !== null;
-  /** Always load DB row so we know if a session exists; env vars are checked separately for OAuth routes. */
-  const [conn, rows] = await Promise.all([loadOuraConnection(), loadOuraStepsSeries()]);
+  const [conn, rows] = await Promise.all([loadOuraConnection(), loadOuraSleepSeries()]);
 
   return (
-    <StepsPageClient
+    <SleepPageClient
       initialRows={rows}
       ouraConfigured={ouraConfigured}
       connected={conn != null}

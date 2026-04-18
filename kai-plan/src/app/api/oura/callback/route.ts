@@ -3,7 +3,11 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getSoloUserId } from "@/lib/solo-user";
 import { ouraExchangeCode } from "@/lib/oura-api";
-import { getOuraOAuthEnv, syncOuraStepsDefaultWindow } from "@/lib/oura-sync";
+import {
+  getOuraOAuthEnv,
+  syncOuraSleepDefaultWindow,
+  syncOuraStepsDefaultWindow,
+} from "@/lib/oura-sync";
 
 const OURA_STATE_COOKIE = "oura_oauth_state";
 
@@ -67,9 +71,16 @@ export async function GET(request: Request) {
       return redirectSteps(request, { oura_error: error.message });
     }
 
-    await syncOuraStepsDefaultWindow();
-
-    return redirectSteps(request, { oura_connected: "1" });
+    const stepsRes = await syncOuraStepsDefaultWindow();
+    if ("error" in stepsRes) {
+      return redirectSteps(request, { oura_error: stepsRes.error });
+    }
+    const sleepRes = await syncOuraSleepDefaultWindow();
+    const q: Record<string, string> = { oura_connected: "1" };
+    if ("error" in sleepRes) {
+      q.oura_sleep_error = encodeURIComponent(sleepRes.error.slice(0, 200));
+    }
+    return redirectSteps(request, q);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "token_exchange_failed";
     return redirectSteps(request, { oura_error: msg.slice(0, 180) });
