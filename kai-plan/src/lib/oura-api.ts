@@ -4,8 +4,10 @@ const OURA_AUTHORIZE = "https://cloud.ouraring.com/oauth/authorize";
 const OURA_TOKEN = "https://api.ouraring.com/oauth/token";
 const OURA_DAILY_ACTIVITY =
   "https://api.ouraring.com/v2/usercollection/daily_activity";
+const OURA_DAILY_READINESS = "https://api.ouraring.com/v2/usercollection/daily_readiness";
 const OURA_DAILY_SLEEP = "https://api.ouraring.com/v2/usercollection/daily_sleep";
 const OURA_SLEEP = "https://api.ouraring.com/v2/usercollection/sleep";
+const OURA_HEARTRATE = "https://api.ouraring.com/v2/usercollection/heartrate";
 
 export function ouraAuthorizeUrl(input: {
   clientId: string;
@@ -16,8 +18,8 @@ export function ouraAuthorizeUrl(input: {
     response_type: "code",
     client_id: input.clientId,
     redirect_uri: input.redirectUri,
-    /** `personal` = detailed sleep periods; `daily` = daily summaries (steps, daily_sleep score). */
-    scope: "personal daily",
+    /** `personal` + `daily` + `heartrate` per Oura Cloud API v2 (openapi heartrate route). */
+    scope: "personal daily heartrate",
     state: input.state,
   });
   return `${OURA_AUTHORIZE}?${p.toString()}`;
@@ -77,14 +79,21 @@ export async function ouraRefreshToken(input: {
   return res.json() as Promise<OuraTokenResponse>;
 }
 
-type DailyActivityRow = { day?: string; steps?: number };
+type DailyActivityRow = { id?: string; day?: string; steps?: number };
 
-export async function ouraFetchDailyActivity(input: {
+/** Full `daily_activity` document (PublicDailyActivity) for storage / export. */
+export type OuraDailyActivityDocument = {
+  day: string;
+  oura_id: string | null;
+  payload: Record<string, unknown>;
+};
+
+export async function ouraFetchDailyActivityDocuments(input: {
   accessToken: string;
   startDate: string;
   endDate: string;
-}): Promise<{ day: string; steps: number }[]> {
-  const out: { day: string; steps: number }[] = [];
+}): Promise<OuraDailyActivityDocument[]> {
+  const out: OuraDailyActivityDocument[] = [];
   let nextToken: string | null = null;
 
   do {
@@ -101,15 +110,77 @@ export async function ouraFetchDailyActivity(input: {
       throw new Error(`Oura daily_activity failed (${res.status}): ${t.slice(0, 200)}`);
     }
     const json = (await res.json()) as {
-      data?: DailyActivityRow[];
+      data?: Array<Record<string, unknown>>;
       next_token?: string | null;
     };
     for (const row of json.data ?? []) {
-      const raw = row.day?.trim() ?? "";
+      const raw = String((row as DailyActivityRow).day ?? "").trim();
       const day = /^(\d{4}-\d{2}-\d{2})/.exec(raw)?.[1];
       if (!day) continue;
-      const steps = typeof row.steps === "number" && Number.isFinite(row.steps) ? row.steps : 0;
-      out.push({ day, steps: Math.max(0, Math.round(steps)) });
+      const idRaw = (row as DailyActivityRow).id;
+      const oura_id = typeof idRaw === "string" && idRaw.length ? idRaw : null;
+      out.push({ day, oura_id, payload: row });
+    }
+    nextToken = json.next_token ?? null;
+  } while (nextToken);
+
+  return out;
+}
+
+/** Step totals derived from `daily_activity` (backward compatible with `oura_daily_steps`). */
+export async function ouraFetchDailyActivity(input: {
+  accessToken: string;
+  startDate: string;
+  endDate: string;
+}): Promise<{ day: string; steps: number }[]> {
+  const docs = await ouraFetchDailyActivityDocuments(input);
+  return docs.map((d) => {
+    const stepsRaw = d.payload.steps;
+    const steps =
+      typeof stepsRaw === "number" && Number.isFinite(stepsRaw) ? Math.max(0, Math.round(stepsRaw)) : 0;
+    return { day: d.day, steps };
+  });
+}
+
+/** Full `daily_readiness` document (PublicDailyReadiness). */
+export type OuraDailyReadinessDocument = {
+  day: string;
+  oura_id: string | null;
+  payload: Record<string, unknown>;
+};
+
+export async function ouraFetchDailyReadinessDocuments(input: {
+  accessToken: string;
+  startDate: string;
+  endDate: string;
+}): Promise<OuraDailyReadinessDocument[]> {
+  const out: OuraDailyReadinessDocument[] = [];
+  let nextToken: string | null = null;
+
+  do {
+    const u = new URL(OURA_DAILY_READINESS);
+    u.searchParams.set("start_date", input.startDate);
+    u.searchParams.set("end_date", input.endDate);
+    if (nextToken) u.searchParams.set("next_token", nextToken);
+
+    const res = await fetch(u.toString(), {
+      headers: { Authorization: `Bearer ${input.accessToken}` },
+    });
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(`Oura daily_readiness failed (${res.status}): ${t.slice(0, 200)}`);
+    }
+    const json = (await res.json()) as {
+      data?: Array<Record<string, unknown>>;
+      next_token?: string | null;
+    };
+    for (const row of json.data ?? []) {
+      const raw = String(row.day ?? "").trim();
+      const day = /^(\d{4}-\d{2}-\d{2})/.exec(raw)?.[1];
+      if (!day) continue;
+      const idRaw = row.id;
+      const oura_id = typeof idRaw === "string" && idRaw.length ? idRaw : null;
+      out.push({ day, oura_id, payload: row });
     }
     nextToken = json.next_token ?? null;
   } while (nextToken);
@@ -147,6 +218,12 @@ export type OuraSleepPeriodRow = {
   latency: number | null;
   bedtime_start: string | null;
   bedtime_end: string | null;
+  /** From sleep period document (PublicModifiedSleepModel) when present. */
+  average_hrv: number | null;
+  average_heart_rate: number | null;
+  lowest_heart_rate: number | null;
+  heart_rate: unknown | null;
+  hrv: unknown | null;
 };
 
 export type MergedOuraSleepDay = {
@@ -163,6 +240,11 @@ export type MergedOuraSleepDay = {
   latency_seconds: number | null;
   bedtime_start: string | null;
   bedtime_end: string | null;
+  average_hrv: number | null;
+  average_heart_rate: number | null;
+  lowest_heart_rate: number | null;
+  sleep_heart_rate_samples: unknown | null;
+  sleep_hrv_samples: unknown | null;
 };
 
 function parseOuraDay(raw: string): string | null {
@@ -182,6 +264,57 @@ function numberFromUnknown(v: unknown): number | null {
 function intOrNull(v: unknown): number | null {
   const n = numberFromUnknown(v);
   return n == null ? null : Math.round(n);
+}
+
+function floatOrNull(v: unknown): number | null {
+  const n = numberFromUnknown(v);
+  return n == null ? null : n;
+}
+
+/** Discrete heart rate samples (PublicHeartRateRow). Requires `heartrate` OAuth scope. */
+export type OuraHeartRateSample = {
+  sample_at: string;
+  bpm: number;
+  source: string;
+};
+
+export async function ouraFetchHeartRateSamples(input: {
+  accessToken: string;
+  startDatetime: string;
+  endDatetime: string;
+}): Promise<OuraHeartRateSample[]> {
+  const out: OuraHeartRateSample[] = [];
+  let nextToken: string | null = null;
+
+  do {
+    const u = new URL(OURA_HEARTRATE);
+    u.searchParams.set("start_datetime", input.startDatetime);
+    u.searchParams.set("end_datetime", input.endDatetime);
+    if (nextToken) u.searchParams.set("next_token", nextToken);
+
+    const res = await fetch(u.toString(), {
+      headers: { Authorization: `Bearer ${input.accessToken}` },
+    });
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(`Oura heartrate failed (${res.status}): ${t.slice(0, 200)}`);
+    }
+    const json = (await res.json()) as {
+      data?: Array<Record<string, unknown>>;
+      next_token?: string | null;
+    };
+    for (const row of json.data ?? []) {
+      const ts = typeof row.timestamp === "string" ? row.timestamp : null;
+      if (!ts) continue;
+      const bpm = intOrNull(row.bpm);
+      if (bpm == null) continue;
+      const src = typeof row.source === "string" ? row.source : "unknown";
+      out.push({ sample_at: ts, bpm, source: src });
+    }
+    nextToken = json.next_token ?? null;
+  } while (nextToken);
+
+  return out;
 }
 
 /**
@@ -358,6 +491,15 @@ export async function ouraFetchSleepPeriods(input: {
         latency: intOrNull(row.latency),
         bedtime_start: typeof row.bedtime_start === "string" ? row.bedtime_start : null,
         bedtime_end: typeof row.bedtime_end === "string" ? row.bedtime_end : null,
+        average_hrv: intOrNull(row.average_hrv),
+        average_heart_rate: floatOrNull(row.average_heart_rate),
+        lowest_heart_rate: intOrNull(row.lowest_heart_rate),
+        heart_rate:
+          row.heart_rate && typeof row.heart_rate === "object" && !Array.isArray(row.heart_rate)
+            ? row.heart_rate
+            : null,
+        hrv:
+          row.hrv && typeof row.hrv === "object" && !Array.isArray(row.hrv) ? row.hrv : null,
       });
     }
     nextToken = json.next_token ?? null;
@@ -408,6 +550,11 @@ export function mergeOuraSleepByDay(
       latency_seconds: firstDefined(best?.latency, dRow?.latency_seconds),
       bedtime_start: firstDefined(best?.bedtime_start, dRow?.bedtime_start),
       bedtime_end: firstDefined(best?.bedtime_end, dRow?.bedtime_end),
+      average_hrv: best?.average_hrv ?? null,
+      average_heart_rate: best?.average_heart_rate ?? null,
+      lowest_heart_rate: best?.lowest_heart_rate ?? null,
+      sleep_heart_rate_samples: best?.heart_rate ?? null,
+      sleep_hrv_samples: best?.hrv ?? null,
     });
   }
   return merged;

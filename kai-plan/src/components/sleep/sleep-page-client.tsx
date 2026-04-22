@@ -30,6 +30,8 @@ type OuraQuery = {
   oura_error?: string;
   oura_connected?: string;
   oura_sleep_error?: string;
+  oura_readiness_error?: string;
+  oura_hr_error?: string;
 };
 
 type Props = {
@@ -129,16 +131,17 @@ export function SleepPageClient({
   const lastNight = pickLastNightRow(sortedAsc);
   const tableRows = [...sortedAsc].reverse();
   const hasSleepData = sortedAsc.length > 0;
-  const sleepErrorDecoded =
-    typeof ouraQuery.oura_sleep_error === "string"
-      ? (() => {
-          try {
-            return decodeURIComponent(ouraQuery.oura_sleep_error);
-          } catch {
-            return ouraQuery.oura_sleep_error;
-          }
-        })()
-      : undefined;
+  function decodeParam(v: string | undefined): string | undefined {
+    if (typeof v !== "string") return undefined;
+    try {
+      return decodeURIComponent(v);
+    } catch {
+      return v;
+    }
+  }
+  const sleepErrorDecoded = decodeParam(ouraQuery.oura_sleep_error);
+  const readinessErrorDecoded = decodeParam(ouraQuery.oura_readiness_error);
+  const hrErrorDecoded = decodeParam(ouraQuery.oura_hr_error);
 
   return (
     <div className="space-y-6">
@@ -175,10 +178,20 @@ export function SleepPageClient({
           className="rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100"
           role="status"
         >
-          Oura connected — sleep sync attempted.
+          Oura connected — full sync attempted (sleep, activity, readiness, heart rate).
           {sleepErrorDecoded ? (
             <span className="mt-2 block border-t border-emerald-500/25 pt-2 text-amber-100/95">
               Sleep sync: {sleepErrorDecoded}
+            </span>
+          ) : null}
+          {readinessErrorDecoded ? (
+            <span className="mt-2 block border-t border-emerald-500/25 pt-2 text-amber-100/95">
+              Readiness sync: {readinessErrorDecoded}
+            </span>
+          ) : null}
+          {hrErrorDecoded ? (
+            <span className="mt-2 block border-t border-emerald-500/25 pt-2 text-amber-100/95">
+              Heart rate sync: {hrErrorDecoded}
             </span>
           ) : null}
         </div>

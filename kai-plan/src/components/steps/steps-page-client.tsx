@@ -26,7 +26,13 @@ function SyncFromOuraSubmitButton() {
   );
 }
 
-type OuraQuery = { oura_error?: string; oura_connected?: string; oura_sleep_error?: string };
+type OuraQuery = {
+  oura_error?: string;
+  oura_connected?: string;
+  oura_sleep_error?: string;
+  oura_readiness_error?: string;
+  oura_hr_error?: string;
+};
 
 type Props = {
   initialRows: OuraStepDayRow[];
@@ -42,16 +48,17 @@ export function StepsPageClient({
   ouraQuery,
 }: Props) {
   const todayBanner = formatLongDate(todayLocalDateString());
-  const sleepErr =
-    typeof ouraQuery.oura_sleep_error === "string"
-      ? (() => {
-          try {
-            return decodeURIComponent(ouraQuery.oura_sleep_error);
-          } catch {
-            return ouraQuery.oura_sleep_error;
-          }
-        })()
-      : undefined;
+  function decodeParam(v: string | undefined): string | undefined {
+    if (typeof v !== "string") return undefined;
+    try {
+      return decodeURIComponent(v);
+    } catch {
+      return v;
+    }
+  }
+  const sleepErr = decodeParam(ouraQuery.oura_sleep_error);
+  const readinessErr = decodeParam(ouraQuery.oura_readiness_error);
+  const hrErr = decodeParam(ouraQuery.oura_hr_error);
   const sortedAsc = [...initialRows].sort((a, b) => a.date.localeCompare(b.date));
   const last = sortedAsc.length ? sortedAsc[sortedAsc.length - 1] : null;
   const tableRows = [...sortedAsc].reverse();
@@ -92,13 +99,23 @@ export function StepsPageClient({
           className="rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100"
           role="status"
         >
-          Oura connected — steps synced.
+          Oura connected — full Oura sync attempted (steps, activity, readiness, heart rate, sleep).
           {sleepErr ? (
             <span className="mt-2 block border-t border-emerald-500/25 pt-2 text-amber-100/95">
               Sleep sync: {sleepErr}
               {" — "}
               open the <strong className="font-semibold">Sleep</strong> tab after ensuring your Oura app
               requests the <strong className="font-semibold">personal</strong> scope, then sync again.
+            </span>
+          ) : null}
+          {readinessErr ? (
+            <span className="mt-2 block border-t border-emerald-500/25 pt-2 text-amber-100/95">
+              Readiness sync: {readinessErr}
+            </span>
+          ) : null}
+          {hrErr ? (
+            <span className="mt-2 block border-t border-emerald-500/25 pt-2 text-amber-100/95">
+              Heart rate sync: {hrErr}
             </span>
           ) : null}
         </div>

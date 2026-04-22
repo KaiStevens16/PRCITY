@@ -11,6 +11,8 @@ export default async function StepsPage({
     oura_error?: string;
     oura_connected?: string;
     oura_sleep_error?: string;
+    oura_readiness_error?: string;
+    oura_hr_error?: string;
   }>;
 }) {
   const ouraQuery = await searchParams;

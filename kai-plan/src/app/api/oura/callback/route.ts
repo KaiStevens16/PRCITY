@@ -3,11 +3,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getSoloUserId } from "@/lib/solo-user";
 import { ouraExchangeCode } from "@/lib/oura-api";
-import {
-  getOuraOAuthEnv,
-  syncOuraSleepDefaultWindow,
-  syncOuraStepsDefaultWindow,
-} from "@/lib/oura-sync";
+import { getOuraOAuthEnv, syncOuraAllDefaultWindow } from "@/lib/oura-sync";
 
 const OURA_STATE_COOKIE = "oura_oauth_state";
 
@@ -71,14 +67,20 @@ export async function GET(request: Request) {
       return redirectSteps(request, { oura_error: error.message });
     }
 
-    const stepsRes = await syncOuraStepsDefaultWindow();
-    if ("error" in stepsRes) {
-      return redirectSteps(request, { oura_error: stepsRes.error });
+    const full = await syncOuraAllDefaultWindow();
+    if ("error" in full) {
+      return redirectSteps(request, { oura_error: full.error });
     }
-    const sleepRes = await syncOuraSleepDefaultWindow();
     const q: Record<string, string> = { oura_connected: "1" };
-    if ("error" in sleepRes) {
-      q.oura_sleep_error = encodeURIComponent(sleepRes.error.slice(0, 200));
+    const d = full.detail;
+    if (d.sleep_error) {
+      q.oura_sleep_error = encodeURIComponent(d.sleep_error.slice(0, 200));
+    }
+    if (d.readiness_error) {
+      q.oura_readiness_error = encodeURIComponent(d.readiness_error.slice(0, 200));
+    }
+    if (d.heart_rate_error) {
+      q.oura_hr_error = encodeURIComponent(d.heart_rate_error.slice(0, 200));
     }
     return redirectSteps(request, q);
   } catch (e) {

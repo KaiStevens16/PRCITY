@@ -26,3 +26,4 @@ alter table public.reading_log_entries enable row level security;
 
 comment on table public.reading_log_entries is
   'Daily reading log: pages read + time; one row per calendar day per user (solo / service_role).';
+ 

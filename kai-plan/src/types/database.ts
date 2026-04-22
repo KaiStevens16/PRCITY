@@ -40,6 +40,17 @@ export type BodyWeightEntry = {
   updated_at: string;
 };
 
+export type InbodyBodyFatProxyEntry = {
+  id: string;
+  user_id: string;
+  logged_date: string;
+  skeletal_muscle_mass_lb: number;
+  body_fat_pct: number;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ReadingLogEntry = {
   id: string;
   user_id: string;

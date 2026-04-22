@@ -1,17 +1,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { syncOuraSleepDefaultWindow, syncOuraStepsDefaultWindow } from "@/lib/oura-sync";
+import { syncOuraAllDefaultWindow } from "@/lib/oura-sync";
 
 export async function syncOuraStepsAction(): Promise<void> {
-  await syncOuraStepsDefaultWindow();
+  await syncOuraAllDefaultWindow();
   revalidatePath("/");
   revalidatePath("/steps");
   revalidatePath("/sleep");
 }
 
 export async function syncOuraSleepAction(): Promise<void> {
-  await syncOuraSleepDefaultWindow();
+  await syncOuraAllDefaultWindow();
   revalidatePath("/");
+  revalidatePath("/steps");
   revalidatePath("/sleep");
 }
