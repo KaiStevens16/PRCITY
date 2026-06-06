@@ -7,7 +7,6 @@ import { phaseBadgeVariant } from "@/lib/rotation";
 import { formatLongDate } from "@/lib/date";
 import type { SessionRow } from "@/components/history/history-view";
 import { HistoryWorkoutSimple } from "@/components/history/history-workout-simple";
-import { SessionHistoryStrip } from "@/components/history/session-history-strip";
 import {
   HistoryDeleteSessionDialog,
   HistorySessionDeleteIcon,
@@ -16,23 +15,6 @@ import { HistoryCopySessionRowButton } from "@/components/history/history-copy-s
 import { cn } from "@/lib/utils";
 
 const SWIPE_REVEAL_PX = 80;
-
-/** Same filter as Sort by workout: newest-first list, same template, logged-ish statuses. */
-function sameTemplateRecentSessions(
-  source: SessionRow[],
-  templateId: string | null
-): SessionRow[] {
-  if (!templateId) return [];
-  return source
-    .filter(
-      (row) =>
-        row.template_id === templateId &&
-        (row.status === "completed" ||
-          row.status === "skipped" ||
-          row.status === "in_progress")
-    )
-    .slice(0, 3);
-}
 
 function ignoreRowToggle(target: EventTarget | null) {
   return (target as HTMLElement | null)?.closest("[data-row-toggle-ignore]") != null;
@@ -223,14 +205,7 @@ function HistorySessionMobileRow({
   );
 }
 
-export function HistorySessionTable({
-  rows,
-  /** Full history (newest first) for same-template strip on the top row; not the tab slice. */
-  stripSourceSessions,
-}: {
-  rows: SessionRow[];
-  stripSourceSessions: SessionRow[];
-}) {
+export function HistorySessionTable({ rows }: { rows: SessionRow[] }) {
   const router = useRouter();
   const [openId, setOpenId] = useState<string | null>(null);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
@@ -293,11 +268,6 @@ export function HistorySessionTable({
                 s.status === "completed" ||
                 s.status === "skipped" ||
                 s.status === "in_progress";
-              const sameTemplateStrip = sameTemplateRecentSessions(
-                stripSourceSessions,
-                s.template_id
-              );
-
               const rowToggle = (e: React.MouseEvent<HTMLTableRowElement>) => {
                 if (ignoreRowToggle(e.target)) return;
                 setOpenId(isOpen ? null : s.id);
@@ -381,17 +351,13 @@ export function HistorySessionTable({
                   {isOpen && (
                     <tr className="border-b border-border/30 bg-background/15">
                       <td colSpan={5} className="min-w-0 p-0">
-                        {sameTemplateStrip.length > 0 ? (
-                          <SessionHistoryStrip sessions={sameTemplateStrip} />
-                        ) : (
-                          <HistoryWorkoutSimple
-                            sessionId={s.id}
-                            editable={editable}
-                            sessionNotes={s.session_notes}
-                            initialWeirdDay={s.weird_day === true}
-                            initialWeirdDayNotes={s.weird_day_notes ?? null}
-                          />
-                        )}
+                        <HistoryWorkoutSimple
+                          sessionId={s.id}
+                          editable={editable}
+                          sessionNotes={s.session_notes}
+                          initialWeirdDay={s.weird_day === true}
+                          initialWeirdDayNotes={s.weird_day_notes ?? null}
+                        />
                       </td>
                     </tr>
                   )}

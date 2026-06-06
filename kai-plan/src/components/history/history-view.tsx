@@ -63,21 +63,21 @@ export function HistoryView({
       <TabsContent value="all">
         <Card className="border-border/60 bg-card/80">
           <CardContent className="pt-6">
-            <HistorySessionTable rows={allSessions} stripSourceSessions={allSessions} />
+            <HistorySessionTable rows={allSessions} />
           </CardContent>
         </Card>
       </TabsContent>
       <TabsContent value="this">
         <Card className="border-border/60 bg-card/80">
           <CardContent className="pt-6">
-            <HistorySessionTable rows={thisWeek} stripSourceSessions={allSessions} />
+            <HistorySessionTable rows={thisWeek} />
           </CardContent>
         </Card>
       </TabsContent>
       <TabsContent value="last">
         <Card className="border-border/60 bg-card/80">
           <CardContent className="pt-6">
-            <HistorySessionTable rows={lastWeek} stripSourceSessions={allSessions} />
+            <HistorySessionTable rows={lastWeek} />
           </CardContent>
         </Card>
       </TabsContent>
