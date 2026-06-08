@@ -1,8 +1,9 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getSoloUserId } from "@/lib/solo-user";
 import { resolveTodayWorkoutPick, templateForIndex } from "@/lib/rotation";
 import { todayLocalDateString } from "@/lib/date";
+import { fetchLastSetPerformance } from "@/lib/last-time";
+import { getCachedProgramContext, getProgramState } from "@/lib/cached-queries";
 import { WorkoutHeader } from "@/components/training/workout-header";
 import { TodayWorkoutChooser } from "@/components/training/today-workout-chooser";
 import { ExerciseCard } from "@/components/training/exercise-card";
@@ -11,23 +12,6 @@ import { PlannedExerciseCard } from "@/components/training/planned-exercise-card
 import type { LastSetPerformanceRow, WorkoutTemplate } from "@/types/database";
 import { Card, CardContent } from "@/components/ui/card";
 
-async function fetchLastPerformance(
-  supabase: SupabaseClient,
-  userId: string,
-  templateExerciseId: string,
-  beforeDate: string,
-  excludeSessionId?: string | null
-): Promise<LastSetPerformanceRow[]> {
-  const { data, error } = await supabase.rpc("get_last_set_performance", {
-    p_user_id: userId,
-    p_template_exercise_id: templateExerciseId,
-    p_before_date: beforeDate,
-    p_exclude_session_id: excludeSessionId ?? null,
-  });
-  if (error) return [];
-  return (data ?? []) as LastSetPerformanceRow[];
-}
-
 type TodayPageProps = { searchParams: Promise<{ workout?: string }> };
 
 export default async function TodayPage({ searchParams }: TodayPageProps) {
@@ -35,20 +19,18 @@ export default async function TodayPage({ searchParams }: TodayPageProps) {
   const supabase = createClient();
   const userId = getSoloUserId();
 
-  const { data: state } = await supabase
-    .from("program_state")
-    .select("*")
-    .eq("user_id", userId)
-    .single();
+  const [state, ctx] = await Promise.all([getProgramState(), getCachedProgramContext()]);
+  if (!ctx) {
+    return (
+      <p className="text-muted-foreground">
+        No active program found. Run the latest Supabase migration.
+      </p>
+    );
+  }
 
-  const { data: templates } = await supabase
-    .from("workout_templates")
-    .select("*")
-    .eq("is_active", true)
-    .order("rotation_order", { ascending: true });
-
+  const { program, rotationLength, templates } = ctx;
   const rotationIndex = state?.current_rotation_index ?? 0;
-  const recommendedTemplate = templateForIndex(templates ?? [], rotationIndex);
+  const recommendedTemplate = templateForIndex(templates, rotationIndex, rotationLength);
   if (!recommendedTemplate) {
     return (
       <p className="text-muted-foreground">
@@ -57,7 +39,7 @@ export default async function TodayPage({ searchParams }: TodayPageProps) {
     );
   }
 
-  const pickOptions = (templates ?? []).map((t) => ({
+  const pickOptions = templates.map((t) => ({
     id: t.id,
     name: t.name,
     phase: t.phase,
@@ -106,6 +88,7 @@ export default async function TodayPage({ searchParams }: TodayPageProps) {
           .order("set_number", { ascending: true });
 
         let te = null as {
+          exercise_name: string;
           target_sets: number;
           rep_min: number;
           rep_max: number;
@@ -116,7 +99,7 @@ export default async function TodayPage({ searchParams }: TodayPageProps) {
           const { data } = await supabase
             .from("template_exercises")
             .select(
-              "target_sets, rep_min, rep_max, intensity_note, rest_seconds"
+              "target_sets, rep_min, rep_max, intensity_note, rest_seconds, exercise_name"
             )
             .eq("id", se.template_exercise_id)
             .single();
@@ -125,10 +108,11 @@ export default async function TodayPage({ searchParams }: TodayPageProps) {
 
         let lastTime: LastSetPerformanceRow[] = [];
         if (se.template_exercise_id) {
-          lastTime = await fetchLastPerformance(
+          lastTime = await fetchLastSetPerformance(
             supabase,
             userId,
             se.template_exercise_id,
+            te?.exercise_name ?? se.planned_exercise_name,
             beforeDate,
             excludeId
           );
@@ -162,7 +146,7 @@ export default async function TodayPage({ searchParams }: TodayPageProps) {
     return (
       <div>
         {mismatch && (
-          <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-100">
+          <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-50 px-4 py-2 text-sm text-amber-800">
             You have an in-progress session from another day in the rotation.
             Finish it to advance — rotation won&apos;t move until then.
           </div>
@@ -171,6 +155,7 @@ export default async function TodayPage({ searchParams }: TodayPageProps) {
           template={headerTemplate}
           session={session}
           isLightDay={isRestDay}
+          programPreworkoutNote={program.preworkout_note}
           sessionProgress={sessionProgress}
         />
         {rows.length === 0 && (
@@ -202,11 +187,11 @@ export default async function TodayPage({ searchParams }: TodayPageProps) {
     );
   }
 
-  /* Planned view — no active session */
   const { template } = resolveTodayWorkoutPick(
-    templates ?? [],
+    templates,
     rotationIndex,
-    sp.workout
+    sp.workout,
+    rotationLength
   );
   if (!template) {
     return (
@@ -226,10 +211,11 @@ export default async function TodayPage({ searchParams }: TodayPageProps) {
 
   const plannedRows = await Promise.all(
     (templateExercises ?? []).map(async (ex) => {
-      const lastTime = await fetchLastPerformance(
+      const lastTime = await fetchLastSetPerformance(
         supabase,
         userId,
         ex.id,
+        ex.exercise_name,
         beforeDate,
         null
       );
@@ -246,7 +232,12 @@ export default async function TodayPage({ searchParams }: TodayPageProps) {
           recommendedId={recommendedTemplate.id}
           selectedId={template.id}
         />
-        <WorkoutHeader template={template} session={null} isLightDay />
+        <WorkoutHeader
+          template={template}
+          session={null}
+          isLightDay
+          programPreworkoutNote={program.preworkout_note}
+        />
         <Card className="max-w-xl border-border/80 bg-card/80">
           <CardContent className="space-y-3 py-6 text-sm text-muted-foreground">
             <p className="text-foreground">
@@ -270,7 +261,12 @@ export default async function TodayPage({ searchParams }: TodayPageProps) {
         recommendedId={recommendedTemplate.id}
         selectedId={template.id}
       />
-      <WorkoutHeader template={template} session={null} isLightDay={false} />
+      <WorkoutHeader
+        template={template}
+        session={null}
+        isLightDay={false}
+        programPreworkoutNote={program.preworkout_note}
+      />
       {isRecovery && (
         <p className="mb-4 text-sm text-[hsl(var(--phase-recovery))]">
           Recovery day — keep it light. Log optional if you want a paper trail.

@@ -15,11 +15,11 @@ const badgeVariants = cva(
           "border-transparent bg-destructive text-destructive-foreground shadow hover:bg-destructive/80",
         outline: "text-foreground",
         hypertrophy:
-          "border-transparent bg-[hsl(258_50%_22%)] text-[hsl(var(--phase-hypertrophy))]",
+          "border-transparent bg-violet-100 text-violet-800",
         strength:
-          "border-transparent bg-[hsl(24_50%_18%)] text-[hsl(var(--phase-strength))]",
+          "border-transparent bg-orange-100 text-orange-800",
         recovery:
-          "border-transparent bg-[hsl(152_40%_14%)] text-[hsl(var(--phase-recovery))]",
+          "border-transparent bg-emerald-100 text-emerald-800",
         rest: "border-transparent bg-muted text-muted-foreground",
       },
     },

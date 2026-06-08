@@ -40,11 +40,11 @@ export function TodayWorkoutChooser({ pathname, options, recommendedId, selected
               Today&apos;s workout
             </Label>
             {usingRecommended ? (
-              <Badge variant="outline" className="h-5 border-emerald-500/35 bg-emerald-500/10 text-[9px] font-medium text-emerald-100/95">
+              <Badge variant="outline" className="h-5 border-emerald-500/35 bg-emerald-50 text-[9px] font-medium text-emerald-800">
                 Recommended
               </Badge>
             ) : (
-              <Badge variant="outline" className="h-5 border-amber-500/35 bg-amber-500/10 text-[9px] font-medium text-amber-100/95">
+              <Badge variant="outline" className="h-5 border-amber-500/35 bg-amber-50 text-[9px] font-medium text-amber-800">
                 Custom pick
               </Badge>
             )}
@@ -69,9 +69,9 @@ export function TodayWorkoutChooser({ pathname, options, recommendedId, selected
         </div>
       </div>
       {!usingRecommended && recommended && (
-        <p className="mt-2.5 text-xs leading-relaxed text-amber-100/85">
+        <p className="mt-2.5 text-xs leading-relaxed text-amber-800/85">
           Rotation is due for{" "}
-          <span className="font-medium text-amber-50/95">{recommended.name}</span>
+          <span className="font-medium text-amber-900">{recommended.name}</span>
           <Badge variant={phaseBadgeVariant(recommended.phase)} className="ml-1.5 text-[8px] align-middle">
             {recommended.split}
           </Badge>

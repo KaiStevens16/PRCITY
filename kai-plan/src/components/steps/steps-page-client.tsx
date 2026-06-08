@@ -96,12 +96,12 @@ export function StepsPageClient({
       ) : null}
       {ouraQuery.oura_connected === "1" ? (
         <div
-          className="rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100"
+          className="rounded-xl border border-emerald-500/35 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
           role="status"
         >
           Oura connected — full Oura sync attempted (steps, activity, readiness, heart rate, sleep).
           {sleepErr ? (
-            <span className="mt-2 block border-t border-emerald-500/25 pt-2 text-amber-100/95">
+            <span className="mt-2 block border-t border-emerald-500/25 pt-2 text-amber-800">
               Sleep sync: {sleepErr}
               {" — "}
               open the <strong className="font-semibold">Sleep</strong> tab after ensuring your Oura app
@@ -109,12 +109,12 @@ export function StepsPageClient({
             </span>
           ) : null}
           {readinessErr ? (
-            <span className="mt-2 block border-t border-emerald-500/25 pt-2 text-amber-100/95">
+            <span className="mt-2 block border-t border-emerald-500/25 pt-2 text-amber-800">
               Readiness sync: {readinessErr}
             </span>
           ) : null}
           {hrErr ? (
-            <span className="mt-2 block border-t border-emerald-500/25 pt-2 text-amber-100/95">
+            <span className="mt-2 block border-t border-emerald-500/25 pt-2 text-amber-800">
               Heart rate sync: {hrErr}
             </span>
           ) : null}
@@ -123,10 +123,10 @@ export function StepsPageClient({
 
       {!ouraConfigured && (hasStepData || connected) ? (
         <div
-          className="rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-sm"
+          className="rounded-xl border border-amber-500/35 bg-amber-50 px-4 py-3 text-sm"
           role="status"
         >
-          <p className="font-medium text-amber-100">This server doesn’t see Oura OAuth env vars</p>
+          <p className="font-medium text-amber-800">This server doesn’t see Oura OAuth env vars</p>
           <p className="mt-1.5 text-muted-foreground">
             The chart and table still show <strong className="text-foreground/90">data already in Supabase</strong>
             {connected ? " and a stored Oura session" : ""}. To <strong className="text-foreground/90">connect or sync</strong>
@@ -171,22 +171,22 @@ export function StepsPageClient({
         </Card>
       ) : null}
 
-      <div className="flex flex-col gap-4 rounded-2xl border border-border/50 bg-gradient-to-r from-[hsl(142_40%_18%/0.55)] via-[hsl(220_35%_18%/0.5)] to-[hsl(258_45%_22%/0.45)] px-5 py-4 text-sm text-white shadow-md shadow-black/15 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 rounded-2xl border border-border/60 bg-gradient-to-r from-emerald-50 via-sky-50/80 to-violet-50 px-5 py-4 text-sm text-foreground shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-3">
           <span className="font-semibold tracking-tight">Today</span>
-          <span className="rounded-full bg-white/15 px-3 py-1 text-sm font-medium backdrop-blur-sm">
+          <span className="rounded-full border border-border/40 bg-background/80 px-3 py-1 text-sm font-medium shadow-sm">
             {todayBanner}
           </span>
         </div>
         {last ? (
-          <div className="flex flex-col border-t border-white/15 pt-3 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
-            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/70">
+          <div className="flex flex-col border-t border-border/50 pt-3 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
+            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
               Latest day in data
             </span>
             <span className="mt-1 font-mono text-2xl font-bold tabular-nums tracking-tight">
               {last.steps.toLocaleString()} steps
             </span>
-            <span className="text-sm font-medium text-white/90">{formatLongDate(last.date)}</span>
+            <span className="text-sm font-medium text-foreground">{formatLongDate(last.date)}</span>
           </div>
         ) : null}
       </div>

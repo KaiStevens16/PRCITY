@@ -16,6 +16,7 @@ export type SessionRow = {
   split: string;
   /** Same label as Protocol: `workout_templates.name` when `template_id` is set. */
   sessionTitle: string;
+  programEra?: string | null;
   phase: string;
   duration_minutes: number | null;
   session_notes: string | null;

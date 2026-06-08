@@ -142,7 +142,7 @@ on conflict (template_id, order_index) do update set
 
 -- Hypertrophy Legs (3)
 insert into public.template_exercises (template_id, exercise_name, exercise_group, target_sets, rep_min, rep_max, intensity_note, rest_seconds, order_index) values
-('a0000000-0000-4000-8000-000000000003', 'Bulgarian Split Squats', 'Legs', 3, 10, 12, '40–75% 1RM', 120, 0),
+('a0000000-0000-4000-8000-000000000003', 'Bulgy Split Squats', 'Legs', 3, 10, 12, '40–75% 1RM', 120, 0),
 ('a0000000-0000-4000-8000-000000000003', 'Walking Lunges', 'Legs', 3, 10, 12, '40–75% 1RM', 120, 1),
 ('a0000000-0000-4000-8000-000000000003', 'Back Squats OR Front Squats', 'Legs', 3, 10, 12, null, 150, 2),
 ('a0000000-0000-4000-8000-000000000003', 'Hamstring Curls', 'Legs', 3, 10, 12, '40–75% 1RM', 90, 3),

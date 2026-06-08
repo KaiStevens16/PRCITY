@@ -1,42 +1,46 @@
 import type { WorkoutTemplate } from "@/types/database";
 
-export const ROTATION_LENGTH = 8;
+export const DEFAULT_ROTATION_LENGTH = 8;
 
-/** 0-based index → rotation_order on template (1–8) */
-export function rotationOrderFromIndex(index: number): number {
-  const n = ((index % ROTATION_LENGTH) + ROTATION_LENGTH) % ROTATION_LENGTH;
+/** 0-based index → rotation_order on template (1–N) */
+export function rotationOrderFromIndex(index: number, length = DEFAULT_ROTATION_LENGTH): number {
+  const n = ((index % length) + length) % length;
   return n + 1;
 }
 
-export function nextRotationIndex(current: number): number {
-  return (current + 1) % ROTATION_LENGTH;
+export function nextRotationIndex(current: number, length = DEFAULT_ROTATION_LENGTH): number {
+  return (current + 1) % length;
 }
 
-/** Map `workout_templates.rotation_order` (1–8) to the 0-based index used in `program_state`. */
-export function rotationIndexFromOrder(rotationOrder: number): number {
+/** Map `workout_templates.rotation_order` (1–N) to the 0-based index used in `program_state`. */
+export function rotationIndexFromOrder(rotationOrder: number, length = DEFAULT_ROTATION_LENGTH): number {
   const o = Math.round(rotationOrder);
   if (!Number.isFinite(o)) return 0;
-  const zero = (((o - 1) % ROTATION_LENGTH) + ROTATION_LENGTH) % ROTATION_LENGTH;
+  const zero = (((o - 1) % length) + length) % length;
   return zero;
 }
 
 /** After completing a session for a template, the next scheduled slot in the cycle. */
-export function nextRotationIndexAfterTemplate(rotationOrder: number | null | undefined): number {
+export function nextRotationIndexAfterTemplate(
+  rotationOrder: number | null | undefined,
+  length = DEFAULT_ROTATION_LENGTH
+): number {
   if (rotationOrder == null || !Number.isFinite(rotationOrder)) {
-    return nextRotationIndex(0);
+    return nextRotationIndex(0, length);
   }
-  return nextRotationIndex(rotationIndexFromOrder(rotationOrder));
+  return nextRotationIndex(rotationIndexFromOrder(rotationOrder, length), length);
 }
 
-export function prevRotationIndex(current: number): number {
-  return (current - 1 + ROTATION_LENGTH) % ROTATION_LENGTH;
+export function prevRotationIndex(current: number, length = DEFAULT_ROTATION_LENGTH): number {
+  return (current - 1 + length) % length;
 }
 
 export function templateForIndex(
   templates: WorkoutTemplate[],
-  rotationIndex: number
+  rotationIndex: number,
+  length = DEFAULT_ROTATION_LENGTH
 ): WorkoutTemplate | undefined {
-  const order = rotationOrderFromIndex(rotationIndex);
+  const order = rotationOrderFromIndex(rotationIndex, length);
   return templates.find((t) => t.rotation_order === order);
 }
 
@@ -44,9 +48,10 @@ export function templateForIndex(
 export function resolveTodayWorkoutPick(
   templates: WorkoutTemplate[],
   rotationIndex: number,
-  workoutQueryId: string | null | undefined
+  workoutQueryId: string | null | undefined,
+  length = DEFAULT_ROTATION_LENGTH
 ): { template: WorkoutTemplate | undefined; recommended: WorkoutTemplate | undefined } {
-  const recommended = templateForIndex(templates, rotationIndex);
+  const recommended = templateForIndex(templates, rotationIndex, length);
   const q = workoutQueryId?.trim();
   if (q) {
     const picked = templates.find((t) => t.id === q);
@@ -58,15 +63,16 @@ export function resolveTodayWorkoutPick(
 export function upcomingTemplates(
   templates: WorkoutTemplate[],
   currentRotationIndex: number,
-  count: number
+  count: number,
+  length = DEFAULT_ROTATION_LENGTH
 ): WorkoutTemplate[] {
   const sorted = [...templates].sort(
     (a, b) => a.rotation_order - b.rotation_order
   );
   const out: WorkoutTemplate[] = [];
   for (let i = 1; i <= count; i++) {
-    const idx = (currentRotationIndex + i) % ROTATION_LENGTH;
-    const t = templateForIndex(sorted, idx);
+    const idx = (currentRotationIndex + i) % length;
+    const t = templateForIndex(sorted, idx, length);
     if (t) out.push(t);
   }
   return out;

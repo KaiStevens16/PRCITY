@@ -13,7 +13,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <Link
             href="/"
-            className="bg-gradient-to-r from-white to-white/70 bg-clip-text text-lg font-bold tracking-tight text-transparent transition-opacity hover:opacity-90 active:opacity-80"
+            prefetch
+            className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-lg font-bold tracking-tight text-transparent transition-opacity hover:opacity-90 active:opacity-80"
           >
             PR CITY
           </Link>

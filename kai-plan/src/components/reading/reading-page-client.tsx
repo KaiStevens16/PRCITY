@@ -313,28 +313,28 @@ export function ReadingPageClient({ initialRows }: Props) {
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 rounded-2xl border border-border/50 bg-gradient-to-r from-[hsl(200_45%_22%/0.55)] via-[hsl(258_35%_18%/0.5)] to-[hsl(152_40%_18%/0.45)] px-5 py-4 text-sm text-white shadow-md shadow-black/15 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 rounded-2xl border border-border/60 bg-gradient-to-r from-sky-50 via-violet-50/80 to-emerald-50 px-5 py-4 text-sm text-foreground shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-3">
           <span className="font-semibold tracking-tight">Today</span>
-          <span className="rounded-full bg-white/15 px-3 py-1 text-sm font-medium backdrop-blur-sm">
+          <span className="rounded-full border border-border/40 bg-background/80 px-3 py-1 text-sm font-medium shadow-sm">
             {todayBanner}
           </span>
         </div>
         {last ? (
-          <div className="flex flex-col border-t border-white/15 pt-3 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
-            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/70">
+          <div className="flex flex-col border-t border-border/50 pt-3 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
+            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
               Latest entry
             </span>
             <span className="mt-1 font-mono text-2xl font-bold tabular-nums tracking-tight">
               {last.minutesRead} min
-              <span className="ml-2 text-lg font-semibold text-white/85">
+              <span className="ml-2 text-lg font-semibold text-foreground/85">
                 · {pagesReadCount(last)} pgs
               </span>
             </span>
-            <span className="text-sm font-medium text-white/90">
+            <span className="text-sm font-medium text-foreground">
               {formatLongDate(last.date)}
               {last.book.trim() ? (
-                <span className="mt-1 block text-xs font-normal text-white/75">{last.book.trim()}</span>
+                <span className="mt-1 block text-xs font-normal text-muted-foreground">{last.book.trim()}</span>
               ) : null}
             </span>
           </div>

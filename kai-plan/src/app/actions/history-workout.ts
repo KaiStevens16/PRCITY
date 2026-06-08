@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getSoloUserId } from "@/lib/solo-user";
 import { isRunWarmupExercise } from "@/lib/run-warmup";
+import { isRingStabilityWork } from "@/lib/ring-stability-work";
 import { revalidatePath } from "next/cache";
 
 export type HistoryWorkoutSet = {
@@ -21,6 +22,8 @@ export type HistoryWorkoutBlock = {
   exerciseGroup: string | null;
   title: string;
   isRunWarmup: boolean;
+  isRingStability: boolean;
+  completed: boolean;
   sets: HistoryWorkoutSet[];
   weirdExercise: boolean;
   weirdExerciseNotes: string | null;
@@ -34,6 +37,7 @@ type SeRow = {
   template_exercise_id: string | null;
   weird_exercise: boolean | null;
   weird_exercise_notes: string | null;
+  completed: boolean;
   template_exercises:
     | { exercise_group: string | null }
     | { exercise_group: string | null }[]
@@ -84,6 +88,7 @@ export async function getHistorySessionWorkout(sessionId: string): Promise<
       template_exercise_id,
       weird_exercise,
       weird_exercise_notes,
+      completed,
       template_exercises ( exercise_group )
     `
     )
@@ -124,6 +129,7 @@ export async function getHistorySessionWorkout(sessionId: string): Promise<
     const isRun =
       isRunWarmupExercise(r.actual_exercise_name) &&
       (group ?? "").toLowerCase() === "warm-up";
+    const isRingStability = isRingStabilityWork(r.actual_exercise_name);
 
     return {
       sessionExerciseId: r.id,
@@ -131,6 +137,8 @@ export async function getHistorySessionWorkout(sessionId: string): Promise<
       exerciseGroup: group,
       title: r.actual_exercise_name,
       isRunWarmup: isRun,
+      isRingStability,
+      completed: r.completed === true,
       sets: bySe.get(r.id) ?? [],
       weirdExercise: r.weird_exercise === true,
       weirdExerciseNotes:

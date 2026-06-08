@@ -9,6 +9,8 @@ import { LastTimePanel } from "@/components/training/last-time-panel";
 import { SetLogTable } from "@/components/training/set-log-table";
 import { RunWarmupSetLog } from "@/components/training/run-warmup-set-log";
 import { isRunWarmupExercise } from "@/lib/run-warmup";
+import { isRingStabilityWork, RING_STABILITY_INSTRUCTION } from "@/lib/ring-stability-work";
+import { RingStabilityWorkLog } from "@/components/training/ring-stability-work-log";
 import { SubstitutionModal } from "@/components/training/substitution-modal";
 import type { LastSetPerformanceRow, SessionExercise, SetLog } from "@/types/database";
 import { phaseStripeClass } from "@/lib/rotation";
@@ -66,6 +68,9 @@ export function ExerciseCard({
   const runWarmup =
     isRunWarmupExercise(sessionExercise.planned_exercise_name) ||
     isRunWarmupExercise(sessionExercise.actual_exercise_name);
+  const ringStability =
+    isRingStabilityWork(sessionExercise.planned_exercise_name) ||
+    isRingStabilityWork(sessionExercise.actual_exercise_name);
 
   return (
     <Card
@@ -119,7 +124,7 @@ export function ExerciseCard({
                       variant={sessionExercise.weird_exercise ? "secondary" : "outline"}
                       className={
                         sessionExercise.weird_exercise
-                          ? "h-7 gap-1 border-amber-500/40 bg-amber-500/15 px-2 text-amber-100 hover:bg-amber-500/25"
+                          ? "h-7 gap-1 border-amber-500/40 bg-amber-50 px-2 text-amber-800 hover:bg-amber-100"
                           : "h-7 gap-1 border-border/70 px-2"
                       }
                       onClick={() => {
@@ -155,15 +160,21 @@ export function ExerciseCard({
                   </p>
                 )}
                 <p className="text-[11px] leading-relaxed text-muted-foreground">
-                  <span className="font-medium text-foreground/70">{targetLabel}</span>
-                  <span className="mx-1.5 text-border">·</span>
-                  rest {restLabel}
-                  {intensityNote ? (
+                  {ringStability ? (
+                    <span>{RING_STABILITY_INSTRUCTION}</span>
+                  ) : (
                     <>
+                      <span className="font-medium text-foreground/70">{targetLabel}</span>
                       <span className="mx-1.5 text-border">·</span>
-                      {intensityNote}
+                      rest {restLabel}
+                      {intensityNote ? (
+                        <>
+                          <span className="mx-1.5 text-border">·</span>
+                          {intensityNote}
+                        </>
+                      ) : null}
                     </>
-                  ) : null}
+                  )}
                 </p>
               </div>
             </div>
@@ -212,7 +223,9 @@ export function ExerciseCard({
                 </Button>
               </div>
             )}
-            <LastTimePanel rows={lastTime} mode={runWarmup ? "run" : "default"} />
+            {!ringStability ? (
+              <LastTimePanel rows={lastTime} mode={runWarmup ? "run" : "default"} />
+            ) : null}
             <div className="pt-1">
               <Button
                 type="button"
@@ -235,6 +248,11 @@ export function ExerciseCard({
         <CardContent className="space-y-4 border-t border-border/40 bg-background/20 px-4 pb-5 pt-4 sm:pl-[calc(2.75rem+1rem)]">
           {runWarmup ? (
             <RunWarmupSetLog sets={sets} />
+          ) : ringStability ? (
+            <RingStabilityWorkLog
+              sessionExerciseId={sessionExercise.id}
+              completed={sessionExercise.completed}
+            />
           ) : (
             <SetLogTable sessionExerciseId={sessionExercise.id} sets={sets} />
           )}
@@ -250,7 +268,7 @@ export function ExerciseCard({
                 void updateSessionExercise({
                   id: sessionExercise.id,
                   exerciseNotes: e.target.value || null,
-                }).then(() => router.refresh());
+                });
               }}
             />
           </div>

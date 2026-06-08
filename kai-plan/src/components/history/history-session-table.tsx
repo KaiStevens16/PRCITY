@@ -176,6 +176,11 @@ function HistorySessionMobileRow({
               <span className="tabular-nums text-foreground/90">{formatLongDate(s.date)}</span>
             </div>
             <p className="font-medium leading-snug text-foreground">{s.sessionTitle}</p>
+            {s.programEra ? (
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                {s.programEra}
+              </p>
+            ) : null}
             <div className="flex flex-wrap items-center justify-between gap-2">
               <Badge
                 variant={phaseBadgeVariant(s.phase)}
@@ -320,6 +325,11 @@ export function HistorySessionTable({ rows }: { rows: SessionRow[] }) {
                       <span className="block truncate font-medium sm:overflow-visible sm:whitespace-normal">
                         {s.sessionTitle}
                       </span>
+                      {s.programEra ? (
+                        <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                          {s.programEra}
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-1.5 py-2 sm:px-2">
                       <Badge

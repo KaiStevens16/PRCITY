@@ -7,15 +7,17 @@ export type ProtocolLiftRow = { name: string; group: string };
  * Distinct lifts from the active program (`workout_templates` + `template_exercises`), with
  * OR slots expanded into separate protocol names (e.g. Back Squats / Front Squats).
  */
-export async function fetchProtocolLiftCatalog(supabase: SupabaseClient): Promise<{
+export async function fetchProtocolLiftCatalog(
+  supabase: SupabaseClient,
+  programId?: string | null
+): Promise<{
   lifts: ProtocolLiftRow[];
   /** `exercise_name` → `exercise_group` from templates (pre-OR expansion) for {@link resolveBodyGroupForExerciseName}. */
   templateGroupByName: Map<string, string>;
 }> {
-  const { data: templates, error: e1 } = await supabase
-    .from("workout_templates")
-    .select("id")
-    .eq("is_active", true);
+  let templateQuery = supabase.from("workout_templates").select("id").eq("is_active", true);
+  if (programId) templateQuery = templateQuery.eq("program_id", programId);
+  const { data: templates, error: e1 } = await templateQuery;
   if (e1) throw new Error(e1.message);
   const templateIds = (templates ?? []).map((t) => t.id);
   if (!templateIds.length) return { lifts: [], templateGroupByName: new Map() };

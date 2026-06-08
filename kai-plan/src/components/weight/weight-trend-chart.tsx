@@ -214,15 +214,15 @@ export function WeightTrendChart({ rows, dexaScans = [] }: Props) {
     customdata: bfLabels,
     hovertemplate: "%{customdata}<br>%{y:.1f}% body fat<extra></extra>",
     line: {
-      color: "hsl(210 20% 98%)",
+      color: "hsl(200 85% 45%)",
       width: 2.25,
       shape: "spline",
     },
     marker: {
       size: 7,
-      color: "hsl(210 20% 98%)",
+      color: "hsl(200 85% 45%)",
       symbol: "triangle-up",
-      line: { color: "hsl(230 12% 28%)", width: 1 },
+      line: { color: "hsl(0 0% 100%)", width: 1 },
     },
   };
 

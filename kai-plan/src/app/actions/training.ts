@@ -5,14 +5,28 @@ import { getSoloUserId } from "@/lib/solo-user";
 import { todayLocalDateString } from "@/lib/date";
 import { nextRotationIndex, nextRotationIndexAfterTemplate } from "@/lib/rotation";
 import { isRunWarmupExercise } from "@/lib/run-warmup";
+import { isRingStabilityWork } from "@/lib/ring-stability-work";
+import { emptyWarmupChecklist } from "@/lib/warmup-checklist";
 import { revalidatePath } from "next/cache";
+import { revalidateTrainingCaches } from "@/lib/cache-tags";
+
+async function rotationLengthForTemplate(
+  supabase: ReturnType<typeof createClient>,
+  templateId: string
+): Promise<number> {
+  const { data } = await supabase
+    .from("workout_templates")
+    .select("program_id, training_programs ( rotation_length )")
+    .eq("id", templateId)
+    .maybeSingle();
+  const joined = data?.training_programs as { rotation_length: number } | { rotation_length: number }[] | null;
+  const program = Array.isArray(joined) ? joined[0] : joined;
+  return program?.rotation_length ?? 8;
+}
 
 function revalidateAll() {
-  revalidatePath("/");
+  revalidateTrainingCaches();
   revalidatePath("/today");
-  revalidatePath("/history");
-  revalidatePath("/lifts");
-  revalidatePath("/program");
 }
 
 export async function startSession(templateId: string) {
@@ -54,11 +68,13 @@ export async function startSession(templateId: string) {
       user_id: userId,
       date: dateStr,
       template_id: templateId,
+      program_id: template.program_id,
       phase: template.phase,
       split: template.split,
       status: "in_progress",
       started_at: new Date().toISOString(),
       rotation_index_snapshot: rotationSnap,
+      warmup_checklist: emptyWarmupChecklist(),
     })
     .select("id")
     .single();
@@ -91,10 +107,13 @@ export async function startSession(templateId: string) {
     const isRunWarmupSlot =
       isRunWarmupExercise(ex.exercise_name) &&
       (ex.exercise_group ?? "").trim().toLowerCase() === "warm-up";
-    /** Strength slots use target+1 working sets; run warm-up is one triplet row only. */
+    const isRingStabilitySlot = isRingStabilityWork(ex.exercise_name);
+    /** Strength slots use target+1 working sets; run warm-up is one triplet row; ring stability is checkbox-only. */
     const initialSetCount = isRunWarmupSlot
       ? 1
-      : Math.max(1, ex.target_sets + 1);
+      : isRingStabilitySlot
+        ? 0
+        : Math.max(1, ex.target_sets + 1);
     const rows = Array.from({ length: initialSetCount }, (_, i) => ({
       session_exercise_id: seRow.id,
       set_number: i + 1,
@@ -164,10 +183,11 @@ export async function completeSession(input: {
       .select("rotation_order")
       .eq("id", completedRow.template_id)
       .maybeSingle();
+    const length = await rotationLengthForTemplate(supabase, completedRow.template_id);
     if (wt?.rotation_order != null) {
-      nextIndex = nextRotationIndexAfterTemplate(wt.rotation_order);
+      nextIndex = nextRotationIndexAfterTemplate(wt.rotation_order, length);
     } else {
-      nextIndex = nextRotationIndex(state?.current_rotation_index ?? 0);
+      nextIndex = nextRotationIndex(state?.current_rotation_index ?? 0, length);
     }
   } else {
     nextIndex = nextRotationIndex(state?.current_rotation_index ?? 0);
@@ -204,9 +224,6 @@ export async function updateSetLog(input: {
 
   const { error } = await supabase.from("set_logs").update(patch).eq("id", input.id);
   if (error) return { error: error.message };
-  revalidatePath("/today");
-  revalidatePath("/history");
-  revalidatePath("/lifts");
   return { ok: true };
 }
 
@@ -231,8 +248,6 @@ export async function addSetToSessionExercise(sessionExerciseId: string) {
   if (error) return { error: error.message };
 
   revalidatePath("/today");
-  revalidatePath("/history");
-  revalidatePath("/lifts");
   return { ok: true };
 }
 
@@ -242,8 +257,6 @@ export async function removeSetLog(setLogId: string) {
   if (error) return { error: error.message };
 
   revalidatePath("/today");
-  revalidatePath("/history");
-  revalidatePath("/lifts");
   return { ok: true };
 }
 
@@ -264,8 +277,6 @@ export async function removeLastSetFromSessionExercise(sessionExerciseId: string
   if (error) return { error: error.message };
 
   revalidatePath("/today");
-  revalidatePath("/history");
-  revalidatePath("/lifts");
   return { ok: true };
 }
 
@@ -291,9 +302,6 @@ export async function updateRunWarmupSetLog(input: {
     .eq("id", input.setLogId);
 
   if (error) return { error: error.message };
-  revalidatePath("/today");
-  revalidatePath("/");
-  revalidatePath("/history");
   return { ok: true };
 }
 
@@ -325,8 +333,17 @@ export async function updateSessionExercise(input: {
     .update(patch)
     .eq("id", input.id);
   if (error) return { error: error.message };
-  revalidatePath("/today");
-  revalidatePath("/lifts");
+
+  const needsRevalidate =
+    input.actualExerciseName !== undefined ||
+    input.isSubstitution !== undefined ||
+    input.substitutionReason !== undefined ||
+    input.weirdExercise !== undefined;
+
+  if (needsRevalidate) {
+    revalidateTrainingCaches();
+    revalidatePath("/today");
+  }
   return { ok: true };
 }
 
@@ -338,9 +355,8 @@ export async function removeSessionExercise(sessionExerciseId: string) {
     .eq("id", sessionExerciseId);
 
   if (error) return { error: error.message };
+  revalidateTrainingCaches();
   revalidatePath("/today");
-  revalidatePath("/history");
-  revalidatePath("/lifts");
   return { ok: true };
 }
 
@@ -416,6 +432,7 @@ export async function updateSessionFields(input: {
   sessionId: string;
   sessionNotes?: string | null;
   preworkoutDone?: boolean;
+  warmupChecklist?: Record<string, boolean>;
   weirdDay?: boolean;
   weirdDayNotes?: string | null;
 }) {
@@ -425,6 +442,7 @@ export async function updateSessionFields(input: {
   const patch: Record<string, unknown> = {};
   if (input.sessionNotes !== undefined) patch.session_notes = input.sessionNotes;
   if (input.preworkoutDone !== undefined) patch.preworkout_done = input.preworkoutDone;
+  if (input.warmupChecklist !== undefined) patch.warmup_checklist = input.warmupChecklist;
   if (input.weirdDay !== undefined) patch.weird_day = input.weirdDay;
   if (input.weirdDayNotes !== undefined) patch.weird_day_notes = input.weirdDayNotes;
 
@@ -434,10 +452,15 @@ export async function updateSessionFields(input: {
     .eq("id", input.sessionId)
     .eq("user_id", userId);
   if (error) return { error: error.message };
-  revalidatePath("/today");
-  revalidatePath("/");
-  revalidatePath("/history");
-  revalidatePath(`/history/session/${input.sessionId}`);
+
+  const needsRevalidate =
+    input.weirdDay !== undefined || input.weirdDayNotes !== undefined;
+
+  if (needsRevalidate) {
+    revalidateTrainingCaches();
+    revalidatePath("/today");
+    revalidatePath(`/history/session/${input.sessionId}`);
+  }
   return { ok: true };
 }
 
@@ -481,6 +504,7 @@ export async function quickCompleteRestDay(templateId: string) {
       user_id: userId,
       date: dateStr,
       template_id: templateId,
+      program_id: template.program_id,
       phase: template.phase,
       split: template.split,
       status: "completed",
@@ -494,7 +518,8 @@ export async function quickCompleteRestDay(templateId: string) {
 
   if (se || !session) return { error: se?.message ?? "Failed" };
 
-  const nextIndex = nextRotationIndexAfterTemplate(template.rotation_order);
+  const length = await rotationLengthForTemplate(supabase, templateId);
+  const nextIndex = nextRotationIndexAfterTemplate(template.rotation_order, length);
   await supabase
     .from("program_state")
     .update({ current_rotation_index: nextIndex })

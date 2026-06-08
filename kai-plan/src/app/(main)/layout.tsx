@@ -1,16 +1,12 @@
 import { AppShell } from "@/components/layout/app-shell";
-import { createClient } from "@/lib/supabase/server";
-import { ensureProgramState } from "@/lib/ensure-program-state";
-import { getSoloUserId } from "@/lib/solo-user";
+import { getCachedProgramState } from "@/lib/cached-queries";
 
 export default async function MainLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = createClient();
-  const userId = getSoloUserId();
-  await ensureProgramState(supabase, userId);
+  await getCachedProgramState();
 
   return <AppShell>{children}</AppShell>;
 }

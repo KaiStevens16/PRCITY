@@ -88,13 +88,13 @@ export default async function SessionDetailPage({ params }: Props) {
             <Badge variant="outline">{session.duration_minutes} min</Badge>
           )}
           {session.weird_day && (
-            <Badge className="border-amber-500/50 bg-amber-500/15 text-amber-100">
+            <Badge className="border-amber-500/50 bg-amber-50 text-amber-800">
               Weird day
             </Badge>
           )}
         </div>
         {session.weird_day && session.weird_day_notes && (
-          <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-50/95">
+          <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-50 px-3 py-2 text-sm text-amber-900/90">
             {session.weird_day_notes}
           </p>
         )}

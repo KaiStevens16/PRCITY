@@ -3,12 +3,65 @@
 import { createClient } from "@/lib/supabase/server";
 import { getSoloUserId } from "@/lib/solo-user";
 import { nextRotationIndex, prevRotationIndex } from "@/lib/rotation";
+import { BEASTMODE_PROGRAM_ID } from "@/lib/training-programs";
 import { revalidatePath } from "next/cache";
+import { revalidateTrainingCaches } from "@/lib/cache-tags";
 
 function revalidate() {
-  revalidatePath("/");
+  revalidateTrainingCaches();
   revalidatePath("/today");
-  revalidatePath("/program");
+}
+
+async function activeRotationLength(supabase: ReturnType<typeof createClient>, programId: string | null) {
+  const id = programId ?? BEASTMODE_PROGRAM_ID;
+  const { data } = await supabase
+    .from("training_programs")
+    .select("rotation_length")
+    .eq("id", id)
+    .maybeSingle();
+  return data?.rotation_length ?? 8;
+}
+
+export async function switchActiveProgram(programId: string) {
+  const supabase = createClient();
+  const userId = getSoloUserId();
+
+  const { data: program } = await supabase
+    .from("training_programs")
+    .select("*")
+    .eq("id", programId)
+    .maybeSingle();
+  if (!program) return { error: "Program not found" };
+
+  const { data: state } = await supabase
+    .from("program_state")
+    .select("*")
+    .eq("user_id", userId)
+    .single();
+
+  const metadata = (state?.program_metadata ?? {}) as Record<string, unknown>;
+  const rotationByProgram = {
+    ...((metadata.rotation_by_program as Record<string, number> | undefined) ?? {}),
+  };
+  if (state?.active_program_id) {
+    rotationByProgram[state.active_program_id] = state.current_rotation_index ?? 0;
+  }
+
+  const nextIndex = rotationByProgram[programId] ?? 0;
+
+  const { error } = await supabase
+    .from("program_state")
+    .update({
+      active_program_id: programId,
+      current_rotation_index: nextIndex,
+      current_block_name: program.era_label || program.name,
+      program_metadata: { ...metadata, rotation_by_program: rotationByProgram },
+    })
+    .eq("user_id", userId);
+
+  if (error) return { error: error.message };
+  revalidate();
+  return { ok: true };
 }
 
 export async function adjustRotation(delta: 1 | -1) {
@@ -17,12 +70,13 @@ export async function adjustRotation(delta: 1 | -1) {
 
   const { data: state } = await supabase
     .from("program_state")
-    .select("current_rotation_index")
+    .select("current_rotation_index, active_program_id")
     .eq("user_id", userId)
     .single();
 
+  const length = await activeRotationLength(supabase, state?.active_program_id ?? null);
   const cur = state?.current_rotation_index ?? 0;
-  const next = delta === 1 ? nextRotationIndex(cur) : prevRotationIndex(cur);
+  const next = delta === 1 ? nextRotationIndex(cur, length) : prevRotationIndex(cur, length);
 
   const { error } = await supabase
     .from("program_state")
@@ -38,7 +92,14 @@ export async function setRotationIndex(index: number) {
   const supabase = createClient();
   const userId = getSoloUserId();
 
-  const n = ((index % 8) + 8) % 8;
+  const { data: state } = await supabase
+    .from("program_state")
+    .select("active_program_id")
+    .eq("user_id", userId)
+    .single();
+
+  const length = await activeRotationLength(supabase, state?.active_program_id ?? null);
+  const n = ((index % length) + length) % length;
   const { error } = await supabase
     .from("program_state")
     .update({ current_rotation_index: n })
@@ -70,8 +131,7 @@ export async function updateProgramMetadata(input: {
     .eq("user_id", userId);
 
   if (error) return { error: error.message };
-  revalidatePath("/");
-  revalidatePath("/program");
+  revalidate();
   return { ok: true };
 }
 
@@ -93,9 +153,7 @@ export async function updateWorkoutTemplate(input: {
     .update(patch)
     .eq("id", input.id);
   if (error) return { error: error.message };
-  revalidatePath("/program");
-  revalidatePath("/today");
-  revalidatePath("/lifts");
+  revalidate();
   return { ok: true };
 }
 
@@ -126,9 +184,7 @@ export async function updateTemplateExercise(input: {
     .update(patch)
     .eq("id", input.id);
   if (error) return { error: error.message };
-  revalidatePath("/program");
-  revalidatePath("/today");
-  revalidatePath("/lifts");
+  revalidate();
   return { ok: true };
 }
 
@@ -170,8 +226,6 @@ export async function reorderTemplateExercise(
     .update({ order_index: oldB })
     .eq("id", a.id);
 
-  revalidatePath("/program");
-  revalidatePath("/today");
-  revalidatePath("/lifts");
+  revalidate();
   return { ok: true };
 }

@@ -14,10 +14,11 @@ export async function ensureProgramState(
 
   await supabase.from("program_state").insert({
     user_id: userId,
+    active_program_id: "b0000000-0000-4000-8000-000000000002",
     current_rotation_index: 0,
-    current_block_name: "PR CITY",
-    current_objective: "PR CITY block",
-    timeline_note: "4–8 weeks",
+    current_block_name: "Beastmodes Summer 26",
+    current_objective: "Hypertrophy block",
+    timeline_note: "Beastmodes Summer 26",
     program_metadata: {
       progress_measures: [
         "Weight Maintenance",

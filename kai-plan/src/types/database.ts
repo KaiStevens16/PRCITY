@@ -1,7 +1,20 @@
 export type SessionStatus = "in_progress" | "completed" | "skipped";
 
+export type TrainingProgram = {
+  id: string;
+  slug: string;
+  name: string;
+  era_label: string;
+  description: string | null;
+  rotation_length: number;
+  preworkout_note: string | null;
+  is_archived: boolean;
+  created_at: string;
+};
+
 export type WorkoutTemplate = {
   id: string;
+  program_id: string;
   name: string;
   phase: string;
   split: string;
@@ -82,6 +95,7 @@ export type DexaScan = {
 export type ProgramState = {
   id: string;
   user_id: string;
+  active_program_id: string | null;
   current_rotation_index: number;
   current_block_name: string;
   current_objective: string;
@@ -95,6 +109,7 @@ export type Session = {
   user_id: string;
   date: string;
   template_id: string | null;
+  program_id: string | null;
   phase: string;
   split: string;
   status: SessionStatus;
@@ -107,6 +122,7 @@ export type Session = {
   bodyweight: number | null;
   calories_target: number | null;
   preworkout_done: boolean | null;
+  warmup_checklist: Record<string, boolean> | null;
   rotation_index_snapshot: number | null;
   created_at: string;
   updated_at: string;

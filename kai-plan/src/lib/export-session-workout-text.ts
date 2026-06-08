@@ -2,6 +2,7 @@ import type { HistoryWorkoutBlock, HistoryWorkoutSet } from "@/app/actions/histo
 import { isBodyweightNote } from "@/lib/bw-set";
 import { formatWeight } from "@/lib/e1rm";
 import { formatRunHumanLine } from "@/lib/run-warmup";
+import { RING_STABILITY_INSTRUCTION } from "@/lib/ring-stability-work";
 
 const SEP = "--------";
 
@@ -49,9 +50,13 @@ export function buildSessionWorkoutExportText(
   }
   for (const b of blocks) {
     const setLines: string[] = [];
-    for (const s of b.sets) {
-      const line = b.isRunWarmup ? formatRunSet(s) : formatStrengthSet(s);
-      if (line) setLines.push(line);
+    if (b.isRingStability) {
+      if (b.completed) setLines.push(RING_STABILITY_INSTRUCTION);
+    } else {
+      for (const s of b.sets) {
+        const line = b.isRunWarmup ? formatRunSet(s) : formatStrengthSet(s);
+        if (line) setLines.push(line);
+      }
     }
     if (!setLines.length) continue;
 

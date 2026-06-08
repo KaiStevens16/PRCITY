@@ -193,7 +193,7 @@ BEGIN
   -- Bulgarian split squats
   SELECT id INTO te_id FROM public.template_exercises WHERE template_id = t_legs AND order_index = 0;
   INSERT INTO public.session_exercises (session_id, template_exercise_id, planned_exercise_name, actual_exercise_name, order_index, completed)
-  VALUES (sid, te_id, 'Bulgarian Split Squats', 'Bulgarian Split Squats', 0, true) RETURNING id INTO se_id;
+  VALUES (sid, te_id, 'Bulgy Split Squats', 'Bulgy Split Squats', 0, true) RETURNING id INTO se_id;
   INSERT INTO public.set_logs (session_exercise_id, set_number, weight, reps, completed) VALUES
     (se_id, 1, 30, 12, true), (se_id, 2, 30, 10, true), (se_id, 3, 30, 12, true);
 

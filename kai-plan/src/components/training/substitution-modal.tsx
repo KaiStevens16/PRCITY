@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { removeSessionExercise, updateSessionExercise } from "@/app/actions/training";
+import { searchExerciseNames } from "@/app/actions/exercise-catalog";
 import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 
 type Props = {
   open: boolean;
@@ -33,13 +35,30 @@ export function SubstitutionModal({
   const router = useRouter();
   const [name, setName] = useState(currentActual);
   const [reason, setReason] = useState("");
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   useEffect(() => {
     if (open) {
       setName(currentActual);
       setReason("");
+      setSuggestions([]);
+      setShowSuggestions(false);
     }
   }, [open, currentActual]);
+
+  const loadSuggestions = useCallback(async (query: string) => {
+    const results = await searchExerciseNames(query);
+    setSuggestions(results);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const t = window.setTimeout(() => {
+      void loadSuggestions(name);
+    }, 120);
+    return () => window.clearTimeout(t);
+  }, [open, name, loadSuggestions]);
 
   async function save() {
     const trimmed = name.trim();
@@ -65,6 +84,11 @@ export function SubstitutionModal({
     router.refresh();
   }
 
+  function pickSuggestion(s: string) {
+    setName(s);
+    setShowSuggestions(false);
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
@@ -74,14 +98,41 @@ export function SubstitutionModal({
         <p className="text-sm text-muted-foreground">
           Planned: <span className="text-foreground">{plannedName}</span>
         </p>
-        <div className="space-y-2">
+        <div className="relative space-y-2">
           <Label htmlFor="actual-name">Actual exercise</Label>
           <Input
             id="actual-name"
             value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="What you did"
+            onChange={(e) => {
+              setName(e.target.value);
+              setShowSuggestions(true);
+            }}
+            onFocus={() => setShowSuggestions(true)}
+            onBlur={() => {
+              window.setTimeout(() => setShowSuggestions(false), 150);
+            }}
+            placeholder="Start typing — saved lifts appear below"
+            autoComplete="off"
           />
+          {showSuggestions && suggestions.length > 0 ? (
+            <ul className="absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-y-auto rounded-lg border border-border/70 bg-popover py-1 shadow-md">
+              {suggestions.map((s) => (
+                <li key={s}>
+                  <button
+                    type="button"
+                    className={cn(
+                      "w-full px-3 py-2 text-left text-sm hover:bg-muted/80",
+                      s === name.trim() && "bg-muted/60 font-medium"
+                    )}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => pickSuggestion(s)}
+                  >
+                    {s}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
         <div className="space-y-2">
           <Label htmlFor="reason">Reason (optional)</Label>

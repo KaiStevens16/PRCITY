@@ -1,8 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
-import { getSoloUserId } from "@/lib/solo-user";
 import { HistoryView, type SessionRow } from "@/components/history/history-view";
 import { startOfWeekMonday, toDateString } from "@/lib/date";
 import { chartPhaseFromTemplate } from "@/lib/program-template-phase";
+import { getCachedHistorySessions, getCachedProgramContext } from "@/lib/cached-queries";
+
+export const revalidate = 30;
 
 function embedTemplate(
   rel:
@@ -11,6 +13,17 @@ function embedTemplate(
     | null
     | undefined
 ): { name: string; phase: string } | null {
+  if (rel == null) return null;
+  return Array.isArray(rel) ? rel[0] ?? null : rel;
+}
+
+function embedProgram(
+  rel:
+    | { name: string; era_label: string }
+    | { name: string; era_label: string }[]
+    | null
+    | undefined
+): { name: string; era_label: string } | null {
   if (rel == null) return null;
   return Array.isArray(rel) ? rel[0] ?? null : rel;
 }
@@ -30,8 +43,13 @@ function toSessionRow(s: {
     | { name: string; phase: string }
     | { name: string; phase: string }[]
     | null;
+  training_programs:
+    | { name: string; era_label: string }
+    | { name: string; era_label: string }[]
+    | null;
 }): SessionRow {
   const wt = embedTemplate(s.workout_templates);
+  const prog = embedProgram(s.training_programs);
   return {
     id: s.id,
     date: s.date,
@@ -39,6 +57,7 @@ function toSessionRow(s: {
     template_id: s.template_id,
     split: s.split,
     sessionTitle: wt?.name ?? s.split,
+    programEra: prog?.era_label || prog?.name || null,
     phase: chartPhaseFromTemplate(wt, s.phase),
     duration_minutes: s.duration_minutes,
     session_notes: s.session_notes,
@@ -49,30 +68,13 @@ function toSessionRow(s: {
 
 export default async function HistoryPage() {
   const supabase = createClient();
-  const userId = getSoloUserId();
 
-  const { data: rawSessions } = await supabase
-    .from("sessions")
-    .select(
-      `
-      id,
-      date,
-      status,
-      template_id,
-      split,
-      phase,
-      duration_minutes,
-      session_notes,
-      weird_day,
-      weird_day_notes,
-      workout_templates ( name, phase )
-    `
-    )
-    .eq("user_id", userId)
-    .order("date", { ascending: false })
-    .limit(200);
+  const [rawSessions, ctx] = await Promise.all([
+    getCachedHistorySessions(),
+    getCachedProgramContext(),
+  ]);
 
-  const rows = (rawSessions ?? []).map(toSessionRow);
+  const rows = rawSessions.map(toSessionRow);
 
   const today = new Date();
   const thisMonday = startOfWeekMonday(today);
@@ -95,11 +97,7 @@ export default async function HistoryPage() {
     (s) => s.date >= lastMondayStr && s.date <= lastSundayStr
   );
 
-  const { data: templates } = await supabase
-    .from("workout_templates")
-    .select("id, name")
-    .eq("is_active", true)
-    .order("rotation_order", { ascending: true });
+  const templates = (ctx?.templates ?? []).map((t) => ({ id: t.id, name: t.name }));
   const workoutOptions = (templates ?? []).map((t) => ({ id: t.id, name: t.name }));
   const templateIds = workoutOptions.map((t) => t.id);
   const { data: templateExercises } = templateIds.length

@@ -175,22 +175,22 @@ export function SleepPageClient({
       ) : null}
       {ouraQuery.oura_connected === "1" ? (
         <div
-          className="rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100"
+          className="rounded-xl border border-emerald-500/35 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
           role="status"
         >
           Oura connected — full sync attempted (sleep, activity, readiness, heart rate).
           {sleepErrorDecoded ? (
-            <span className="mt-2 block border-t border-emerald-500/25 pt-2 text-amber-100/95">
+            <span className="mt-2 block border-t border-emerald-500/25 pt-2 text-amber-800">
               Sleep sync: {sleepErrorDecoded}
             </span>
           ) : null}
           {readinessErrorDecoded ? (
-            <span className="mt-2 block border-t border-emerald-500/25 pt-2 text-amber-100/95">
+            <span className="mt-2 block border-t border-emerald-500/25 pt-2 text-amber-800">
               Readiness sync: {readinessErrorDecoded}
             </span>
           ) : null}
           {hrErrorDecoded ? (
-            <span className="mt-2 block border-t border-emerald-500/25 pt-2 text-amber-100/95">
+            <span className="mt-2 block border-t border-emerald-500/25 pt-2 text-amber-800">
               Heart rate sync: {hrErrorDecoded}
             </span>
           ) : null}
@@ -199,10 +199,10 @@ export function SleepPageClient({
 
       {!ouraConfigured && (hasSleepData || connected) ? (
         <div
-          className="rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-sm"
+          className="rounded-xl border border-amber-500/35 bg-amber-50 px-4 py-3 text-sm"
           role="status"
         >
-          <p className="font-medium text-amber-100">This server doesn’t see Oura OAuth env vars</p>
+          <p className="font-medium text-amber-800">This server doesn’t see Oura OAuth env vars</p>
           <p className="mt-1.5 text-muted-foreground">
             The charts and table still show <strong className="text-foreground/90">data already in Supabase</strong>
             {connected ? " and a stored Oura session" : ""}. To <strong className="text-foreground/90">connect or sync</strong>
@@ -248,25 +248,25 @@ export function SleepPageClient({
         </Card>
       ) : null}
 
-      <div className="flex flex-col gap-4 rounded-2xl border border-border/50 bg-gradient-to-r from-[hsl(258_38%_22%/0.55)] via-[hsl(220_40%_18%/0.5)] to-[hsl(200_45%_20%/0.45)] px-5 py-4 text-sm text-white shadow-md shadow-black/15 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 rounded-2xl border border-border/60 bg-gradient-to-r from-violet-50 via-sky-50/80 to-cyan-50 px-5 py-4 text-sm text-foreground shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-3">
           <span className="font-semibold tracking-tight">Today</span>
-          <span className="rounded-full bg-white/15 px-3 py-1 text-sm font-medium backdrop-blur-sm">
+          <span className="rounded-full border border-border/40 bg-background/80 px-3 py-1 text-sm font-medium shadow-sm">
             {todayBanner}
           </span>
         </div>
         {last ? (
-          <div className="flex flex-col border-t border-white/15 pt-3 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
-            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/70">
+          <div className="flex flex-col border-t border-border/50 pt-3 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
+            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
               Latest wake day in data
             </span>
             <span className="mt-1 font-mono text-2xl font-bold tabular-nums tracking-tight">
               {last.sleepScore != null ? `${Math.round(last.sleepScore)} sleep score` : "— score"}
             </span>
-            <span className="text-sm font-medium text-white/90">
+            <span className="text-sm font-medium text-foreground">
               {formatLongDate(last.date)} · {formatDurationSeconds(last.totalSleepSeconds)} asleep
             </span>
-            <span className="mt-1 text-xs text-white/75">{formatTimeRange(last.bedtimeStart, last.bedtimeEnd)}</span>
+            <span className="mt-1 text-xs text-muted-foreground">{formatTimeRange(last.bedtimeStart, last.bedtimeEnd)}</span>
           </div>
         ) : null}
       </div>

@@ -1,12 +1,11 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-import { getSoloUserId } from "@/lib/solo-user";
 import {
   templateForIndex,
   upcomingTemplates,
   phaseBadgeVariant,
   phaseAccentClass,
 } from "@/lib/rotation";
+import { getDashboardSnapshot } from "@/lib/cached-queries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,147 +17,41 @@ import {
   toDateString,
   formatLongDate,
 } from "@/lib/date";
-import { epley1Rm, formatWeight } from "@/lib/e1rm";
-import { loadWeightRows } from "@/lib/weight-data";
+import { formatWeight } from "@/lib/e1rm";
 import { Activity, ArrowRight, Footprints, Quote, Scale, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { quoteOfDay } from "@/lib/quote-of-day";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 export default async function CommandCenterPage() {
-  const supabase = createClient();
-  const userId = getSoloUserId();
+  const {
+    state,
+    ctx,
+    inProgress,
+    weekSessions,
+    weekRunMiles,
+    recent,
+    topLiftLines,
+    lastWeight,
+  } = await getDashboardSnapshot();
 
-  const { data: state } = await supabase
-    .from("program_state")
-    .select("*")
-    .eq("user_id", userId)
-    .single();
-
-  const { data: templates } = await supabase
-    .from("workout_templates")
-    .select("*")
-    .eq("is_active", true)
-    .order("rotation_order", { ascending: true });
+  const templates = ctx?.templates ?? [];
+  const rotationLength = ctx?.rotationLength ?? 8;
+  const activeProgramEra = ctx?.program.era_label || ctx?.program.name || "Protocol";
 
   const idx = state?.current_rotation_index ?? 0;
-  const todayTemplate = templateForIndex(templates ?? [], idx);
-  const upcoming = upcomingTemplates(templates ?? [], idx, 3);
-
-  const { data: inProgress } = await supabase
-    .from("sessions")
-    .select("id, template_id")
-    .eq("user_id", userId)
-    .eq("status", "in_progress")
-    .limit(1)
-    .maybeSingle();
+  const todayTemplate = templateForIndex(templates, idx, rotationLength);
+  const upcoming = upcomingTemplates(templates, idx, 3, rotationLength);
 
   const monday = startOfWeekMonday(new Date());
   const weekStart = toDateString(monday);
-  const weekEndDate = new Date(monday);
-  weekEndDate.setDate(weekEndDate.getDate() + 6);
-  const weekEnd = toDateString(weekEndDate);
   const todayStr = todayLocalDateString();
 
-  const { data: weekSessions } = await supabase
-    .from("sessions")
-    .select("id, date, status, split, duration_minutes, bodyweight")
-    .eq("user_id", userId)
-    .gte("date", weekStart)
-    .lte("date", weekEnd)
-    .order("date", { ascending: false });
-
   const completedThisWeek =
-    weekSessions?.filter((s) => s.status === "completed").length ?? 0;
-
-  const completedWeekIds =
-    weekSessions?.filter((s) => s.status === "completed").map((s) => s.id) ?? [];
-  let weekRunMiles = 0;
-  if (completedWeekIds.length) {
-    const { data: runEx } = await supabase
-      .from("session_exercises")
-      .select("id")
-      .in("session_id", completedWeekIds)
-      .or("planned_exercise_name.eq.Run,actual_exercise_name.eq.Run");
-    const runSeIds = (runEx ?? []).map((x) => x.id);
-    if (runSeIds.length) {
-      const { data: mileLogs } = await supabase
-        .from("set_logs")
-        .select("weight")
-        .in("session_exercise_id", runSeIds)
-        .not("weight", "is", null);
-      weekRunMiles = (mileLogs ?? []).reduce((a, x) => a + Number(x.weight), 0);
-    }
-  }
-
-  const { data: recent } = await supabase
-    .from("sessions")
-    .select(
-      "id, date, status, split, phase, duration_minutes, session_notes, weird_day, weird_day_notes"
-    )
-    .eq("user_id", userId)
-    .eq("status", "completed")
-    .order("date", { ascending: false })
-    .limit(6);
-
-  const { data: recentSess } = await supabase
-    .from("sessions")
-    .select("id, date")
-    .eq("user_id", userId)
-    .eq("status", "completed")
-    .order("date", { ascending: false })
-    .limit(40);
-
-  const sessionIds = (recentSess ?? []).map((s) => s.id);
-  let topLiftLines: [string, { e1: number; weight: number; reps: number }][] = [];
-
-  if (sessionIds.length) {
-    const { data: ses } = await supabase
-      .from("session_exercises")
-      .select("id, actual_exercise_name, session_id")
-      .in("session_id", sessionIds);
-
-    const seIds = (ses ?? []).map((s) => s.id);
-    const seName = new Map((ses ?? []).map((s) => [s.id, s.actual_exercise_name]));
-
-    if (seIds.length) {
-      const { data: logs } = await supabase
-        .from("set_logs")
-        .select("session_exercise_id, weight, reps")
-        .in("session_exercise_id", seIds)
-        .not("weight", "is", null)
-        .not("reps", "is", null);
-
-      const byExercise = new Map<
-        string,
-        { e1: number; weight: number; reps: number }
-      >();
-      for (const row of logs ?? []) {
-        const name = seName.get(row.session_exercise_id) ?? "Lift";
-        if (name === "Run") continue;
-        const e1 = epley1Rm(Number(row.weight), Number(row.reps));
-        if (e1 == null) continue;
-        const prev = byExercise.get(name);
-        if (!prev || e1 > prev.e1) {
-          byExercise.set(name, {
-            e1,
-            weight: Number(row.weight),
-            reps: Number(row.reps),
-          });
-        }
-      }
-      topLiftLines = [...byExercise.entries()]
-        .sort((a, b) => b[1].e1 - a[1].e1)
-        .slice(0, 5);
-    }
-  }
-
-  const weightRows = await loadWeightRows();
-  const lastWeight = weightRows.length ? weightRows[weightRows.length - 1] : null;
+    weekSessions.filter((s) => s.status === "completed").length;
 
   const phaseClass = todayTemplate ? phaseAccentClass(todayTemplate.phase) : "";
-
   const dailyQuote = quoteOfDay(todayLocalDateString());
 
   return (
@@ -181,13 +74,13 @@ export default async function CommandCenterPage() {
         </CardContent>
       </Card>
 
-      <section className="relative overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-card via-card to-[hsl(258_25%_8%)] p-6 shadow-card-lg md:p-8">
+      <section className="relative overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-card via-card to-violet-50/60 p-6 shadow-card-lg md:p-8">
         <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[hsl(var(--phase-hypertrophy)/0.12)] blur-3xl" />
         <div className="pointer-events-none absolute -bottom-16 left-1/3 h-48 w-48 rounded-full bg-[hsl(var(--phase-strength)/0.08)] blur-3xl" />
         <div className="relative flex flex-wrap items-end justify-between gap-6">
           <div className="min-w-0 space-y-3">
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-              Command center
+              Command center · {activeProgramEra}
             </p>
             <h1 className="text-balance text-3xl font-bold tracking-tight md:text-4xl">
               Today&apos;s Protocol
@@ -204,16 +97,16 @@ export default async function CommandCenterPage() {
             )}
             <div className="flex flex-wrap gap-3 pt-2">
               {inProgress ? (
-                <Button size="lg" className="gap-2 shadow-lg shadow-black/30" asChild>
-                  <Link href="/today">
+                <Button size="lg" className="gap-2 shadow-md" asChild>
+                  <Link href="/today" prefetch>
                     <Activity className="h-4 w-4" />
                     Continue session
                     <ArrowRight className="h-4 w-4 opacity-70" />
                   </Link>
                 </Button>
               ) : (
-                <Button size="lg" className="gap-2 shadow-lg shadow-black/30" asChild>
-                  <Link href="/today">
+                <Button size="lg" className="gap-2 shadow-md" asChild>
+                  <Link href="/today" prefetch>
                     Open Today
                     <ArrowRight className="h-4 w-4 opacity-70" />
                   </Link>
@@ -276,14 +169,18 @@ export default async function CommandCenterPage() {
                   Last entry · {formatLongDate(lastWeight.date)}
                 </p>
                 <Button variant="outline" size="sm" className="w-full border-border/60" asChild>
-                  <Link href="/weight">Weight trend</Link>
+                  <Link href="/weight" prefetch>
+                    Weight trend
+                  </Link>
                 </Button>
               </>
             ) : (
               <>
                 <p className="text-sm text-muted-foreground">No CSV linked yet.</p>
                 <Button variant="outline" size="sm" className="w-full" asChild>
-                  <Link href="/weight">Setup</Link>
+                  <Link href="/weight" prefetch>
+                    Setup
+                  </Link>
                 </Button>
               </>
             )}
@@ -319,7 +216,7 @@ export default async function CommandCenterPage() {
           </CardHeader>
           <CardContent>
             <ul className="space-y-2.5">
-              {(recent ?? []).map((s) => {
+              {recent.map((s) => {
                 const weird = s.weird_day === true;
                 return (
                   <li key={s.id}>
@@ -332,8 +229,8 @@ export default async function CommandCenterPage() {
                         className={cn(
                           "flex min-w-0 items-center gap-1.5 text-xs font-medium transition-colors",
                           weird
-                            ? "text-amber-100/95 group-hover:text-amber-50"
-                            : "text-emerald-100/90 group-hover:text-emerald-50"
+                            ? "text-amber-700 group-hover:text-amber-800"
+                            : "text-emerald-700 group-hover:text-emerald-800"
                         )}
                       >
                         <span className="shrink-0 text-[15px] leading-none" aria-hidden>
@@ -345,8 +242,8 @@ export default async function CommandCenterPage() {
                         className={cn(
                           "truncate text-right font-medium transition-colors",
                           weird
-                            ? "text-amber-50/95 group-hover:text-amber-50"
-                            : "text-emerald-50/95 group-hover:text-emerald-50"
+                            ? "text-amber-800/90 group-hover:text-amber-900"
+                            : "text-emerald-800/90 group-hover:text-emerald-900"
                         )}
                       >
                         {s.split}
@@ -355,7 +252,7 @@ export default async function CommandCenterPage() {
                   </li>
                 );
               })}
-              {!recent?.length && (
+              {!recent.length && (
                 <li className="text-sm text-muted-foreground">Log a session on Today.</li>
               )}
             </ul>
@@ -382,7 +279,9 @@ export default async function CommandCenterPage() {
               </li>
             ))}
             {!topLiftLines.length && (
-              <li className="col-span-full text-sm text-muted-foreground">More training data will populate this.</li>
+              <li className="col-span-full text-sm text-muted-foreground">
+                More training data will populate this.
+              </li>
             )}
           </ul>
         </CardContent>

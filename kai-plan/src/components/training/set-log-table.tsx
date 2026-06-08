@@ -24,6 +24,7 @@ type Props = {
 };
 
 type Draft = { w: string; r: string; n: string };
+type Field = "weight" | "reps" | "set_note";
 
 function draftKey(sets: SetLog[]) {
   return sets
@@ -31,30 +32,52 @@ function draftKey(sets: SetLog[]) {
     .join("|");
 }
 
+function serverDraft(s: SetLog): Draft {
+  return {
+    w: weightDraftFromSet(s.weight, s.set_note),
+    r: s.reps != null ? String(s.reps) : "",
+    n: noteDraftFromSet(s.set_note),
+  };
+}
+
 export function SetLogTable({ sessionExerciseId, sets }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [draft, setDraft] = useState<Record<string, Draft>>({});
+  const draftRef = useRef<Record<string, Draft>>({});
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const pendingFields = useRef<Set<string>>(new Set());
   const syncKey = useRef("");
+
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
 
   useEffect(() => {
     const k = draftKey(sets);
     if (k === syncKey.current) return;
     syncKey.current = k;
+
     const next: Record<string, Draft> = {};
     for (const s of sets) {
+      const fromServer = serverDraft(s);
+      const local = draftRef.current[s.id];
+      if (!local) {
+        next[s.id] = fromServer;
+        continue;
+      }
       next[s.id] = {
-        w: weightDraftFromSet(s.weight, s.set_note),
-        r: s.reps != null ? String(s.reps) : "",
-        n: noteDraftFromSet(s.set_note),
+        w: pendingFields.current.has(`${s.id}:weight`) ? local.w : fromServer.w,
+        r: pendingFields.current.has(`${s.id}:reps`) ? local.r : fromServer.r,
+        n: pendingFields.current.has(`${s.id}:set_note`) ? local.n : fromServer.n,
       };
     }
     setDraft(next);
+    draftRef.current = next;
   }, [sets]);
 
   const flushSave = useCallback(
-    async (id: string, field: "weight" | "reps" | "set_note", raw: string) => {
+    async (id: string, field: Field, raw: string) => {
       const current = sets.find((s) => s.id === id);
       const currentNote = current?.set_note ?? null;
       if (field === "set_note") {
@@ -86,24 +109,24 @@ export function SetLogTable({ sessionExerciseId, sets }: Props) {
     [sets]
   );
 
-  function scheduleSave(
-    id: string,
-    field: "weight" | "reps" | "set_note",
-    raw: string
-  ) {
+  function scheduleSave(id: string, field: Field, raw: string) {
     const key = `${id}:${field}`;
+    pendingFields.current.add(key);
     if (timers.current[key]) clearTimeout(timers.current[key]);
     timers.current[key] = setTimeout(() => {
       delete timers.current[key];
-      void flushSave(id, field, raw);
-    }, 450);
+      void flushSave(id, field, raw).finally(() => {
+        pendingFields.current.delete(key);
+      });
+    }, 500);
   }
 
   function updateDraft(id: string, part: keyof Draft, value: string) {
-    setDraft((d) => ({
-      ...d,
-      [id]: { ...d[id], [part]: value },
-    }));
+    setDraft((d) => {
+      const u = { ...d, [id]: { ...d[id], [part]: value } };
+      draftRef.current = u;
+      return u;
+    });
   }
 
   return (

@@ -18,6 +18,7 @@ import { defaultPlotlyLayout } from "@/lib/plotly-theme";
 import { QuickAddWorkoutForm } from "@/components/history/quick-add-workout-form";
 import { loadLiftChartPoints } from "@/lib/lift-chart-data";
 import { fetchProtocolLiftCatalog } from "@/lib/protocol-lifts";
+import { fetchActiveProgramContext } from "@/lib/training-programs";
 import {
   buildSquatTopSetTraces,
   isSquatLiftPageName,
@@ -39,14 +40,16 @@ export default async function LiftDetailPage({ params }: Props) {
   const supabase = createClient();
   const userId = getSoloUserId();
 
+  const { data: progState } = await supabase
+    .from("program_state")
+    .select("active_program_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  const ctx = await fetchActiveProgramContext(supabase, progState?.active_program_id);
+  const workoutOptions = (ctx?.templates ?? []).map((t) => ({ id: t.id, name: t.name }));
+
   if (isProtocolOrSlotExerciseName(name)) {
     const legs = expandOrSlotLoggedNameForLiftsBrowse(name);
-    const { data: templates } = await supabase
-      .from("workout_templates")
-      .select("id, name")
-      .eq("is_active", true)
-      .order("rotation_order", { ascending: true });
-    const workoutOptions = (templates ?? []).map((t) => ({ id: t.id, name: t.name }));
     return (
       <div className="space-y-8">
         <Button variant="ghost" size="sm" asChild>
@@ -77,16 +80,9 @@ export default async function LiftDetailPage({ params }: Props) {
     );
   }
 
-  const { data: templates } = await supabase
-    .from("workout_templates")
-    .select("id, name")
-    .eq("is_active", true)
-    .order("rotation_order", { ascending: true });
-  const workoutOptions = (templates ?? []).map((t) => ({ id: t.id, name: t.name }));
-
   let notOnActiveProtocol: boolean | null = null;
   try {
-    const { lifts: protocolLifts } = await fetchProtocolLiftCatalog(supabase);
+    const { lifts: protocolLifts } = await fetchProtocolLiftCatalog(supabase, ctx?.program.id);
     notOnActiveProtocol = !protocolLifts.some((l) => l.name === name);
   } catch {
     notOnActiveProtocol = null;
@@ -138,7 +134,7 @@ export default async function LiftDetailPage({ params }: Props) {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{name}</h1>
           {notOnActiveProtocol === true && (
-            <p className="mt-2 max-w-xl rounded-md border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-xs text-muted-foreground">
+            <p className="mt-2 max-w-xl rounded-md border border-amber-500/35 bg-amber-50 px-3 py-2 text-xs text-muted-foreground">
               This title is not on your active program template, so it will not appear on the Lifts
               index. Charts still aggregate logs that match this name (including substitutions when
               the planned slot was this lift).
@@ -272,7 +268,7 @@ export default async function LiftDetailPage({ params }: Props) {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">{name}</h1>
         {notOnActiveProtocol === true && (
-          <p className="mt-2 max-w-xl rounded-md border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-xs text-muted-foreground">
+          <p className="mt-2 max-w-xl rounded-md border border-amber-500/35 bg-amber-50 px-3 py-2 text-xs text-muted-foreground">
             This title is not on your active program template, so it will not appear on the Lifts
             index. Charts still aggregate logs that match this name (including substitutions when
             the planned slot was this lift).

@@ -22,9 +22,10 @@ type Props = {
   template: WorkoutTemplate;
   exercises: TemplateExercise[];
   isCurrent: boolean;
+  readOnly?: boolean;
 };
 
-export function ProgramTemplateCard({ template, exercises, isCurrent }: Props) {
+export function ProgramTemplateCard({ template, exercises, isCurrent, readOnly = false }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(isCurrent);
   const [name, setName] = useState(template.name);
@@ -93,20 +94,22 @@ export function ProgramTemplateCard({ template, exercises, isCurrent }: Props) {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>Name</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} />
+              <Input value={name} onChange={(e) => setName(e.target.value)} readOnly={readOnly} />
             </div>
             <div className="space-y-2">
               <Label>Est. duration (min)</Label>
-              <Input value={dur} onChange={(e) => setDur(e.target.value)} type="text" />
+              <Input value={dur} onChange={(e) => setDur(e.target.value)} type="text" readOnly={readOnly} />
             </div>
             <div className="space-y-2 md:col-span-2">
               <Label>Warm-up note</Label>
-              <Textarea value={warm} onChange={(e) => setWarm(e.target.value)} rows={2} />
+              <Textarea value={warm} onChange={(e) => setWarm(e.target.value)} rows={2} readOnly={readOnly} />
             </div>
           </div>
-          <Button type="button" onClick={saveMeta}>
-            Save template
-          </Button>
+          {!readOnly ? (
+            <Button type="button" onClick={saveMeta}>
+              Save template
+            </Button>
+          ) : null}
           <Separator />
           <p className="text-sm font-medium">Exercises</p>
           <ul className="space-y-4">
@@ -115,6 +118,7 @@ export function ProgramTemplateCard({ template, exercises, isCurrent }: Props) {
                 key={ex.id}
                 templateId={template.id}
                 exercise={ex}
+                readOnly={readOnly}
                 onChanged={() => router.refresh()}
               />
             ))}
@@ -128,10 +132,12 @@ export function ProgramTemplateCard({ template, exercises, isCurrent }: Props) {
 function ExerciseRow({
   templateId,
   exercise,
+  readOnly = false,
   onChanged,
 }: {
   templateId: string;
   exercise: TemplateExercise;
+  readOnly?: boolean;
   onChanged: () => void;
 }) {
   const [name, setName] = useState(exercise.exercise_name);
@@ -191,7 +197,7 @@ function ExerciseRow({
         <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           <div className="sm:col-span-2">
             <Label className="text-xs">Exercise</Label>
-            <Input className="mt-1" value={name} onChange={(e) => setName(e.target.value)} />
+            <Input className="mt-1" value={name} onChange={(e) => setName(e.target.value)} readOnly={readOnly} />
           </div>
           <div>
             <Label className="text-xs">Sets</Label>
@@ -219,17 +225,21 @@ function ExerciseRow({
             <Input className="mt-1" value={intensity} onChange={(e) => setIntensity(e.target.value)} />
           </div>
         </div>
-        <Button type="button" size="sm" variant="secondary" onClick={save}>
-          Save
-        </Button>
-        <div className="ml-auto flex flex-col gap-1">
-          <Button type="button" variant="outline" size="icon" className="h-7 w-7" onClick={() => move("up")}>
-            <ChevronUp className="h-4 w-4" />
-          </Button>
-          <Button type="button" variant="outline" size="icon" className="h-7 w-7" onClick={() => move("down")}>
-            <ChevronDown className="h-4 w-4" />
-          </Button>
-        </div>
+        {!readOnly ? (
+          <>
+            <Button type="button" size="sm" variant="secondary" onClick={save}>
+              Save
+            </Button>
+            <div className="ml-auto flex flex-col gap-1">
+              <Button type="button" variant="outline" size="icon" className="h-7 w-7" onClick={() => move("up")}>
+                <ChevronUp className="h-4 w-4" />
+              </Button>
+              <Button type="button" variant="outline" size="icon" className="h-7 w-7" onClick={() => move("down")}>
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </div>
+          </>
+        ) : null}
       </div>
     </li>
   );

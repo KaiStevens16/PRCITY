@@ -33,7 +33,7 @@ export function MobileNav() {
       </SheetTrigger>
       <SheetContent side="left" className="w-[min(100%,18rem)] border-border/60 bg-card p-0">
         <SheetHeader className="border-b border-border/50 px-4 py-4 text-left">
-          <SheetTitle className="bg-gradient-to-r from-white to-white/70 bg-clip-text text-left text-xl font-bold tracking-tight text-transparent">
+          <SheetTitle className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-left text-xl font-bold tracking-tight text-transparent">
             PR CITY
           </SheetTitle>
         </SheetHeader>
@@ -47,10 +47,11 @@ export function MobileNav() {
               <SheetClose key={href} asChild>
                 <Link
                   href={href}
+                  prefetch
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors",
                     active
-                      ? "bg-secondary text-foreground shadow-sm ring-1 ring-white/8"
+                      ? "bg-secondary text-foreground shadow-sm ring-1 ring-border/60"
                       : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
                   )}
                 >

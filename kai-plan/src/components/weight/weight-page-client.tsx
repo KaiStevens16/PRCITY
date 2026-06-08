@@ -235,22 +235,22 @@ export function WeightPageClient({ initialRows, initialDexaScans }: Props) {
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 rounded-2xl border border-border/50 bg-gradient-to-r from-[hsl(258_45%_22%/0.55)] via-[hsl(220_35%_18%/0.5)] to-[hsl(24_50%_22%/0.45)] px-5 py-4 text-sm text-white shadow-md shadow-black/15 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 rounded-2xl border border-border/60 bg-gradient-to-r from-violet-50 via-sky-50/80 to-orange-50 px-5 py-4 text-sm text-foreground shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-3">
           <span className="font-semibold tracking-tight">Today</span>
-          <span className="rounded-full bg-white/15 px-3 py-1 text-sm font-medium backdrop-blur-sm">
+          <span className="rounded-full border border-border/40 bg-background/80 px-3 py-1 text-sm font-medium shadow-sm">
             {todayBanner}
           </span>
         </div>
         {last ? (
-          <div className="flex flex-col border-t border-white/15 pt-3 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
-            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/70">
+          <div className="flex flex-col border-t border-border/50 pt-3 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
+            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
               Latest weigh-in
             </span>
             <span className="mt-1 font-mono text-2xl font-bold tabular-nums tracking-tight">
               {last.weight.toFixed(1)} lb
             </span>
-            <span className="text-sm font-medium text-white/90">
+            <span className="text-sm font-medium text-foreground">
               {formatLongDate(last.date)}
             </span>
           </div>

@@ -12,8 +12,8 @@ const SWIPE_REVEAL_PX = 76;
 
 function rowSurface(weird: boolean) {
   return weird
-    ? "border-amber-500/35 bg-amber-500/10 hover:border-border/60 hover:bg-amber-500/15"
-    : "border-emerald-500/30 bg-emerald-500/[0.08] hover:border-border/60 hover:bg-emerald-500/12";
+    ? "border-amber-500/35 bg-amber-50 hover:border-border/60 hover:bg-amber-100"
+    : "border-emerald-500/30 bg-emerald-50 hover:border-border/60 hover:bg-emerald-100";
 }
 
 type Props = {

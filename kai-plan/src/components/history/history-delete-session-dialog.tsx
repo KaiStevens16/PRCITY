@@ -20,6 +20,10 @@ type DialogProps = {
   onOpenChange: (open: boolean) => void;
   onDeleted?: () => void;
   deleteRedirectTo?: string;
+  title?: string;
+  description?: string;
+  confirmLabel?: string;
+  dismissLabel?: string;
 };
 
 export function HistoryDeleteSessionDialog({
@@ -28,6 +32,10 @@ export function HistoryDeleteSessionDialog({
   onOpenChange,
   onDeleted,
   deleteRedirectTo,
+  title = "Are you sure you want to delete this workout?",
+  description = "This removes the session and every logged set. You can't undo this.",
+  confirmLabel = "Delete",
+  dismissLabel = "Cancel",
 }: DialogProps) {
   const router = useRouter();
   const [deleteErr, setDeleteErr] = useState<string | null>(null);
@@ -57,12 +65,8 @@ export function HistoryDeleteSessionDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="text-center sm:text-left">
         <DialogHeader className="text-center sm:text-center">
-          <DialogTitle className="text-balance">
-            Are you sure you want to delete this workout?
-          </DialogTitle>
-          <DialogDescription className="text-balance pt-1">
-            This removes the session and every logged set. You can&apos;t undo this.
-          </DialogDescription>
+          <DialogTitle className="text-balance">{title}</DialogTitle>
+          <DialogDescription className="text-balance pt-1">{description}</DialogDescription>
         </DialogHeader>
         {deleteErr ? <p className="text-sm text-destructive">{deleteErr}</p> : null}
         <DialogFooter className="w-full flex-col gap-2 sm:flex-col sm:justify-center">
@@ -74,7 +78,7 @@ export function HistoryDeleteSessionDialog({
               disabled={pending}
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {dismissLabel}
             </Button>
             <Button
               type="button"
@@ -83,7 +87,7 @@ export function HistoryDeleteSessionDialog({
               disabled={pending}
               onClick={() => void runDelete()}
             >
-              {pending ? "Deleting…" : "Delete"}
+              {pending ? "Working…" : confirmLabel}
             </Button>
           </div>
         </DialogFooter>

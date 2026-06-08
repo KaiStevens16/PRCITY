@@ -1,6 +1,4 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-import { getSoloUserId } from "@/lib/solo-user";
 import { exerciseSlug } from "@/lib/slug";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,16 +8,20 @@ import {
   liftGroupHeadingDotClass,
   resolveBodyGroupForExerciseName,
 } from "@/lib/lift-browse";
-import { fetchProtocolLiftCatalog } from "@/lib/protocol-lifts";
+import { getCachedLiftCatalog, getCachedProgramContext } from "@/lib/cached-queries";
+
+export const revalidate = 60;
 
 export default async function LiftsPage() {
-  const supabase = createClient();
-  getSoloUserId();
+  const ctx = await getCachedProgramContext();
+  const programEra = ctx?.program.era_label || ctx?.program.name || "Active program";
 
   let lifts: { name: string; group: string }[] = [];
   let loadError: string | null = null;
   try {
-    const { lifts: protocolLifts, templateGroupByName } = await fetchProtocolLiftCatalog(supabase);
+    const { lifts: protocolLifts, templateGroupByName } = await getCachedLiftCatalog(
+      ctx?.program.id
+    );
     lifts = protocolLifts.map((row) => ({
       name: row.name,
       group: resolveBodyGroupForExerciseName(row.name, templateGroupByName),
@@ -60,7 +62,7 @@ export default async function LiftsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Lifts</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          One page per protocol exercise (active program). Substitution logs still roll into the
+          {programEra} — one page per protocol exercise. Substitution logs still roll into the
           planned lift&apos;s charts when marked as a substitution.
         </p>
       </div>

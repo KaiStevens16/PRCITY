@@ -1,11 +1,11 @@
 import type { Layout } from "plotly.js";
 
 export const chartColorway = [
-  "hsl(258 88% 68%)",
-  "hsl(152 58% 50%)",
-  "hsl(22 92% 58%)",
-  "hsl(200 85% 58%)",
-  "hsl(280 65% 62%)",
+  "hsl(258 88% 58%)",
+  "hsl(152 58% 40%)",
+  "hsl(22 92% 48%)",
+  "hsl(200 85% 48%)",
+  "hsl(280 65% 52%)",
 ];
 
 export const defaultPlotlyLayout: Partial<Layout> = {
@@ -14,20 +14,20 @@ export const defaultPlotlyLayout: Partial<Layout> = {
   font: {
     family: "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif",
     size: 11,
-    color: "hsl(220 14% 78%)",
+    color: "hsl(220 14% 28%)",
   },
   paper_bgcolor: "transparent",
-  plot_bgcolor: "hsl(230 10% 7% / 0.85)",
+  plot_bgcolor: "hsl(0 0% 100% / 0.85)",
   colorway: chartColorway,
   xaxis: {
-    gridcolor: "hsl(230 8% 18% / 0.9)",
+    gridcolor: "hsl(220 13% 91% / 0.9)",
     zeroline: false,
     showline: false,
     tickfont: { size: 10 },
     ticklen: 4,
   },
   yaxis: {
-    gridcolor: "hsl(230 8% 18% / 0.9)",
+    gridcolor: "hsl(220 13% 91% / 0.9)",
     zeroline: false,
     showline: false,
     tickfont: { size: 10 },
@@ -41,12 +41,12 @@ export const defaultPlotlyLayout: Partial<Layout> = {
     bgcolor: "transparent",
   },
   hoverlabel: {
-    bgcolor: "hsl(230 12% 10%)",
-    bordercolor: "hsl(230 8% 22%)",
+    bgcolor: "hsl(0 0% 100%)",
+    bordercolor: "hsl(220 13% 91%)",
     font: {
       family: "var(--font-geist-sans), system-ui",
       size: 12,
-      color: "hsl(210 20% 98%)",
+      color: "hsl(220 14% 28%)",
     },
   },
 };

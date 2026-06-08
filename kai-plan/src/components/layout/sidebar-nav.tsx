@@ -12,7 +12,7 @@ export function SidebarNav() {
     <aside className="hidden w-[13.5rem] shrink-0 flex-col border-r border-border/60 bg-card/50 px-2 py-6 backdrop-blur-sm md:flex">
       <div className="mb-8 px-3">
         <Link href="/" className="block transition-opacity hover:opacity-90">
-          <p className="bg-gradient-to-r from-white to-white/70 bg-clip-text text-xl font-bold tracking-tight text-transparent">
+          <p className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-xl font-bold tracking-tight text-transparent">
             PR CITY
           </p>
         </Link>
@@ -27,10 +27,11 @@ export function SidebarNav() {
             <Link
               key={href}
               href={href}
+              prefetch
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
                 active
-                  ? "bg-secondary text-foreground shadow-sm ring-1 ring-white/8"
+                  ? "bg-secondary text-foreground shadow-sm ring-1 ring-border/60"
                   : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
               )}
             >

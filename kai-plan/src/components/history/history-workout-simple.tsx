@@ -29,6 +29,7 @@ import {
   reconcileRunWarmupTriplet,
   visibleRunWarmupSets,
 } from "@/lib/run-warmup";
+import { RING_STABILITY_INSTRUCTION } from "@/lib/ring-stability-work";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -168,12 +169,12 @@ export function HistoryWorkoutSimple({
 
   const weirdDayCallout =
     !suppressSessionWeirdBanner && sessionWeird.day ? (
-      <div className="mb-4 rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2.5">
+      <div className="mb-4 rounded-lg border border-amber-500/35 bg-amber-50 px-3 py-2.5">
         <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-200/90">
           Weird day
         </p>
         {sessionWeird.notes?.trim() ? (
-          <p className="mt-1.5 text-sm leading-snug text-amber-50/95">{sessionWeird.notes}</p>
+          <p className="mt-1.5 text-sm leading-snug text-amber-900/90">{sessionWeird.notes}</p>
         ) : null}
       </div>
     ) : null;
@@ -256,7 +257,7 @@ export function HistoryWorkoutSimple({
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-medium text-foreground/95">{block.title}</p>
                   {block.weirdExercise ? (
-                    <span className="rounded border border-amber-500/40 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
+                    <span className="rounded border border-amber-500/40 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
                       Weird lift
                     </span>
                   ) : null}
@@ -267,7 +268,12 @@ export function HistoryWorkoutSimple({
                   </p>
                 ) : null}
                 <div className="mt-1.5 space-y-1 pl-0">
-                  {block.isRunWarmup ? (
+                  {block.isRingStability ? (
+                    <p className="text-sm text-muted-foreground">
+                      {block.completed ? "✓ " : "○ "}
+                      {RING_STABILITY_INSTRUCTION}
+                    </p>
+                  ) : block.isRunWarmup ? (
                     visibleRunWarmupSets(block.sets).map((s) => (
                       <HistoryRunSetRow
                         key={s.id}

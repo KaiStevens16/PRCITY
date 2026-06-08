@@ -19,14 +19,13 @@ export function FinishSessionFooter({ sessionId }: Props) {
     await completeSession({ sessionId });
     setPending(false);
     router.push("/");
-    router.refresh();
   }
 
   return (
     <div className="sticky bottom-4 z-20 mt-8 flex justify-center">
       <Button
         size="lg"
-        className="w-full max-w-md gap-2 shadow-lg shadow-black/25"
+        className="w-full max-w-md gap-2 shadow-md"
         disabled={pending}
         onClick={onFinish}
       >

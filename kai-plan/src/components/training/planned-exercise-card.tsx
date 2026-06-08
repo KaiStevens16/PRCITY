@@ -4,6 +4,7 @@ import type { LastSetPerformanceRow, TemplateExercise } from "@/types/database";
 import { phaseStripeClass } from "@/lib/rotation";
 import { cn } from "@/lib/utils";
 import { isRunWarmupExercise } from "@/lib/run-warmup";
+import { isRingStabilityWork, RING_STABILITY_INSTRUCTION } from "@/lib/ring-stability-work";
 
 type Props = {
   exercise: TemplateExercise;
@@ -23,6 +24,7 @@ export function PlannedExerciseCard({ exercise, phase, index, lastTime }: Props)
   const runWarmup =
     isRunWarmupExercise(exercise.exercise_name) &&
     (exercise.exercise_group ?? "").toLowerCase() === "warm-up";
+  const ringStability = isRingStabilityWork(exercise.exercise_name);
 
   return (
     <Card
@@ -42,7 +44,9 @@ export function PlannedExerciseCard({ exercise, phase, index, lastTime }: Props)
             {exercise.exercise_name}
           </h3>
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            {runWarmup ? (
+            {ringStability ? (
+              <span>{RING_STABILITY_INSTRUCTION}</span>
+            ) : runWarmup ? (
               <span>
                 Log{" "}
                 <span className="font-medium text-foreground/80">
@@ -64,14 +68,18 @@ export function PlannedExerciseCard({ exercise, phase, index, lastTime }: Props)
               </>
             )}
           </p>
-          <LastTimePanel rows={lastTime} mode={runWarmup ? "run" : "default"} />
+          {!ringStability ? (
+            <LastTimePanel rows={lastTime} mode={runWarmup ? "run" : "default"} />
+          ) : null}
         </div>
       </CardHeader>
       <CardContent className="border-t border-border/30 bg-background/15 px-4 py-3 sm:pl-[calc(2.75rem+1rem)]">
         <p className="text-[11px] text-muted-foreground">
-          {runWarmup
-            ? "After you start, use the run warm-up row for distance / time / pace."
-            : "Start the session below to log sets — numbers save as you type."}
+          {ringStability
+            ? "After you start, check the box when this prep is done."
+            : runWarmup
+              ? "After you start, use the run warm-up row for distance / time / pace."
+              : "Start the session below to log sets — numbers save as you type."}
         </p>
       </CardContent>
     </Card>

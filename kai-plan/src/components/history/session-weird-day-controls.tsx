@@ -67,7 +67,7 @@ export function SessionWeirdDayControls({
         variant={initialWeird ? "secondary" : "outline"}
         className={
           initialWeird
-            ? "gap-1.5 border-amber-500/40 bg-amber-500/15 text-amber-100 hover:bg-amber-500/25"
+            ? "gap-1.5 border-amber-500/40 bg-amber-50 text-amber-800 hover:bg-amber-100"
             : "gap-1.5 border-border/60"
         }
         onClick={() => setOpen(true)}

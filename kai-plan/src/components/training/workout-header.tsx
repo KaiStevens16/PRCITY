@@ -4,8 +4,6 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import {
   completeSession,
   startSession,
@@ -13,6 +11,8 @@ import {
   quickCompleteRestDay,
 } from "@/app/actions/training";
 import { phaseAccentClass, phaseBadgeVariant } from "@/lib/rotation";
+import { parseWarmupChecklist } from "@/lib/warmup-checklist";
+import { WarmupChecklistPanel } from "@/components/training/warmup-checklist-panel";
 import type { Session, WorkoutTemplate } from "@/types/database";
 import {
   Dialog,
@@ -22,12 +22,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useEffect, useState } from "react";
-import { Play, CheckCircle2, CloudAlert } from "lucide-react";
+import { HistoryDeleteSessionDialog } from "@/components/history/history-delete-session-dialog";
+import { Play, CheckCircle2, CloudAlert, XCircle } from "lucide-react";
 
 type Props = {
   template: WorkoutTemplate;
   session: Session | null;
   isLightDay: boolean;
+  programPreworkoutNote?: string | null;
   /** Exercises completed / total (in-progress sessions only) */
   sessionProgress?: { done: number; total: number } | null;
 };
@@ -36,6 +38,7 @@ export function WorkoutHeader({
   template,
   session,
   isLightDay,
+  programPreworkoutNote,
   sessionProgress,
 }: Props) {
   const router = useRouter();
@@ -45,6 +48,7 @@ export function WorkoutHeader({
     session?.session_notes ?? ""
   );
   const [weirdOpen, setWeirdOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
   const [weirdNotes, setWeirdNotes] = useState(
     session?.weird_day_notes ?? ""
   );
@@ -125,7 +129,7 @@ export function WorkoutHeader({
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             {!session && !isLightDay && (
-              <Button size="lg" className="gap-2 shadow-lg shadow-black/20" onClick={onStart}>
+              <Button size="lg" className="gap-2 shadow-md" onClick={onStart}>
                 <Play className="h-4 w-4 fill-current" />
                 Start session
               </Button>
@@ -147,7 +151,7 @@ export function WorkoutHeader({
                   variant={session.weird_day ? "secondary" : "outline"}
                   className={
                     session.weird_day
-                      ? "gap-2 border-amber-500/40 bg-amber-500/15 text-amber-100 hover:bg-amber-500/25"
+                      ? "gap-2 border-amber-500/40 bg-amber-50 text-amber-800 hover:bg-amber-100"
                       : "gap-2 border-border/60"
                   }
                   onClick={() => setWeirdOpen(true)}
@@ -157,7 +161,16 @@ export function WorkoutHeader({
                 </Button>
                 <Button
                   size="lg"
-                  className="gap-2 shadow-lg shadow-black/25"
+                  variant="outline"
+                  className="gap-2 border-destructive/35 text-destructive hover:bg-destructive/10"
+                  onClick={() => setCancelOpen(true)}
+                >
+                  <XCircle className="h-4 w-4 shrink-0" />
+                  Cancel workout
+                </Button>
+                <Button
+                  size="lg"
+                  className="gap-2 shadow-md"
                   disabled={finishing}
                   onClick={onFinish}
                 >
@@ -171,31 +184,31 @@ export function WorkoutHeader({
       </div>
 
       <div className="mb-8 space-y-4">
-        {template.warmup_note && (
+        {programPreworkoutNote ? (
+          <div className="rounded-xl border border-violet-500/25 bg-violet-50/80 p-4 text-sm leading-relaxed">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+              Pre-workout fuel
+            </p>
+            <p className="mt-2 text-foreground/90">{programPreworkoutNote}</p>
+          </div>
+        ) : null}
+
+        {template.warmup_note ? (
           <div className="rounded-xl border border-border/60 bg-card/40 p-4 text-sm leading-relaxed">
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-              Warm-up
+              Session note
             </p>
             <p className="mt-2 text-foreground/90">{template.warmup_note}</p>
           </div>
-        )}
+        ) : null}
 
-        {session?.status === "in_progress" && (
-          <div className="grid gap-4 rounded-xl border border-border/60 bg-card/30 p-4 sm:grid-cols-2">
-            <Label className="flex cursor-pointer items-center gap-3 text-sm font-normal">
-              <Checkbox
-                className="border-border/80"
-                checked={session.preworkout_done ?? false}
-                onCheckedChange={(c) => {
-                  void updateSessionFields({
-                    sessionId: session.id,
-                    preworkoutDone: c === true,
-                  }).then(() => router.refresh());
-                }}
-              />
-              Pre-workout checklist done
-            </Label>
-            <div className="sm:col-span-2">
+        {session?.status === "in_progress" ? (
+          <>
+            <WarmupChecklistPanel
+              sessionId={session.id}
+              checklist={parseWarmupChecklist(session.warmup_checklist)}
+            />
+            <div className="rounded-xl border border-border/60 bg-card/30 p-4">
               <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Session notes
               </p>
@@ -203,18 +216,31 @@ export function WorkoutHeader({
                 value={sessionNotes}
                 onChange={(e) => setSessionNotes(e.target.value)}
                 onBlur={() =>
-                  updateSessionFields({
+                  void updateSessionFields({
                     sessionId: session.id,
                     sessionNotes: sessionNotes || null,
-                  }).then(() => router.refresh())
+                  })
                 }
                 placeholder="Anything global for this session…"
                 className="min-h-[72px] resize-y border-border/60 bg-background/50 text-sm"
               />
             </div>
-          </div>
-        )}
+          </>
+        ) : null}
       </div>
+
+      {session?.status === "in_progress" ? (
+        <HistoryDeleteSessionDialog
+          sessionId={session.id}
+          open={cancelOpen}
+          onOpenChange={setCancelOpen}
+          deleteRedirectTo="/today"
+          title="Cancel this workout?"
+          description="This discards the in-progress session and any sets you've logged. Rotation won't advance."
+          confirmLabel="Discard workout"
+          dismissLabel="Keep going"
+        />
+      ) : null}
 
       <Dialog open={weirdOpen} onOpenChange={setWeirdOpen}>
         <DialogContent className="border-border/80 bg-card sm:max-w-md">
@@ -296,7 +322,6 @@ export function WorkoutHeader({
               onClick={() => {
                 setSummaryOpen(false);
                 router.push("/");
-                router.refresh();
               }}
             >
               Command Center
