@@ -9,7 +9,7 @@ import { TodayWorkoutChooser } from "@/components/training/today-workout-chooser
 import { ExerciseCard } from "@/components/training/exercise-card";
 import { FinishSessionFooter } from "@/components/training/finish-session-footer";
 import { PlannedExerciseCard } from "@/components/training/planned-exercise-card";
-import type { LastSetPerformanceRow, WorkoutTemplate } from "@/types/database";
+import type { LastSetPerformanceRow, SetLog, WorkoutTemplate } from "@/types/database";
 import { Card, CardContent } from "@/components/ui/card";
 
 type TodayPageProps = { searchParams: Promise<{ workout?: string }> };
@@ -79,69 +79,88 @@ export default async function TodayPage({ searchParams }: TodayPageProps) {
       .eq("session_id", session.id)
       .order("order_index", { ascending: true });
 
-    const rows = await Promise.all(
-      (sessionExercises ?? []).map(async (se) => {
-        const { data: logs } = await supabase
-          .from("set_logs")
-          .select("*")
-          .eq("session_exercise_id", se.id)
-          .order("set_number", { ascending: true });
+    const exercises = sessionExercises ?? [];
+    const seIds = exercises.map((se) => se.id);
+    const teIds = [
+      ...new Set(
+        exercises
+          .map((se) => se.template_exercise_id)
+          .filter((id): id is string => Boolean(id))
+      ),
+    ];
 
-        let te = null as {
-          exercise_name: string;
-          target_sets: number;
-          rep_min: number;
-          rep_max: number;
-          intensity_note: string | null;
-          rest_seconds: number;
-        } | null;
-        if (se.template_exercise_id) {
-          const { data } = await supabase
+    type TeRow = {
+      id: string;
+      target_sets: number;
+      rep_min: number;
+      rep_max: number;
+      intensity_note: string | null;
+      rest_seconds: number;
+      exercise_name: string;
+    };
+
+    const [logsRes, tesRes] = await Promise.all([
+      seIds.length
+        ? supabase
+            .from("set_logs")
+            .select("*")
+            .in("session_exercise_id", seIds)
+            .order("set_number", { ascending: true })
+        : Promise.resolve({ data: [] as SetLog[] }),
+      teIds.length
+        ? supabase
             .from("template_exercises")
             .select(
-              "target_sets, rep_min, rep_max, intensity_note, rest_seconds, exercise_name"
+              "id, target_sets, rep_min, rep_max, intensity_note, rest_seconds, exercise_name"
             )
-            .eq("id", se.template_exercise_id)
-            .single();
-          te = data;
-        }
+            .in("id", teIds)
+        : Promise.resolve({ data: [] as TeRow[] }),
+    ]);
 
-        let lastTime: LastSetPerformanceRow[] = [];
-        if (se.template_exercise_id) {
-          lastTime = await fetchLastSetPerformance(
-            supabase,
-            userId,
-            se.template_exercise_id,
-            te?.exercise_name ?? se.planned_exercise_name,
-            beforeDate,
-            excludeId
-          );
-        }
+    const logsBySe = new Map<string, SetLog[]>();
+    for (const log of (logsRes.data ?? []) as SetLog[]) {
+      const list = logsBySe.get(log.session_exercise_id) ?? [];
+      list.push(log);
+      logsBySe.set(log.session_exercise_id, list);
+    }
 
-        const targetLabel = te
-          ? `${te.target_sets} × ${te.rep_min}–${te.rep_max}`
-          : "—";
-        const restLabel = te
-          ? te.rest_seconds >= 60
-            ? `${Math.round(te.rest_seconds / 60)} min`
-            : `${te.rest_seconds}s`
-          : "—";
-
-        return {
-          se,
-          sets: logs ?? [],
-          lastTime,
-          targetLabel,
-          restLabel,
-          intensityNote: te?.intensity_note ?? null,
-        };
-      })
+    const teById = new Map(
+      ((tesRes.data ?? []) as TeRow[]).map((te) => [te.id, te] as const)
     );
+
+    const rows = exercises.map((se) => {
+      const te = se.template_exercise_id
+        ? teById.get(se.template_exercise_id) ?? null
+        : null;
+      const targetLabel = te
+        ? `${te.target_sets} × ${te.rep_min}–${te.rep_max}`
+        : "—";
+      const restLabel = te
+        ? te.rest_seconds >= 60
+          ? `${Math.round(te.rest_seconds / 60)} min`
+          : `${te.rest_seconds}s`
+        : "—";
+
+      return {
+        se,
+        sets: logsBySe.get(se.id) ?? [],
+        targetLabel,
+        restLabel,
+        intensityNote: te?.intensity_note ?? null,
+      };
+    });
 
     const mismatch = session.template_id !== recommendedTemplate.id;
 
     const doneCount = rows.filter((r) => r.se.completed).length;
     const sessionProgress = { done: doneCount, total: rows.length };
+    const hasCardio = rows.some(
+      (r) =>
+        r.se.planned_exercise_name.trim().toLowerCase() === "run" ||
+        r.se.planned_exercise_name.trim().toLowerCase() === "bike" ||
+        r.se.actual_exercise_name.trim().toLowerCase() === "run" ||
+        r.se.actual_exercise_name.trim().toLowerCase() === "bike"
+    );
 
     return (
       <div>
@@ -157,6 +176,7 @@ export default async function TodayPage({ searchParams }: TodayPageProps) {
           isLightDay={isRestDay}
           programPreworkoutNote={program.preworkout_note}
           sessionProgress={sessionProgress}
+          hasCardio={hasCardio}
         />
         {rows.length === 0 && (
           <Card className="border-dashed border-border/60 bg-card/40">
@@ -175,7 +195,8 @@ export default async function TodayPage({ searchParams }: TodayPageProps) {
               afterOrderIndex={r.se.order_index}
               sessionExercise={r.se}
               sets={r.sets}
-              lastTime={r.lastTime}
+              beforeDate={beforeDate}
+              excludeSessionId={excludeId}
               targetLabel={r.targetLabel}
               restLabel={r.restLabel}
               intensityNote={r.intensityNote}

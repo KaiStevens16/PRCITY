@@ -1,8 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { TrainingProgram, WorkoutTemplate } from "@/types/database";
 
-export const BEASTMODE_PROGRAM_ID = "b0000000-0000-4000-8000-000000000002";
 export const PR_CITY_PROGRAM_ID = "b0000000-0000-4000-8000-000000000001";
+export const BEASTMODE_PROGRAM_ID = "b0000000-0000-4000-8000-000000000002";
+/** Daily driver — Awaken the beast August */
+export const AUGUST_PROGRAM_ID = "b0000000-0000-4000-8000-000000000003";
+/** Fallback when program_state has no active_program_id */
+export const DEFAULT_PROGRAM_ID = AUGUST_PROGRAM_ID;
 
 /** User-facing block title on Protocol / History (era label preferred). */
 export function programDisplayTitle(program: Pick<TrainingProgram, "name" | "era_label">): string {
@@ -32,7 +36,7 @@ export async function fetchActiveProgramContext(
   supabase: SupabaseClient,
   activeProgramId: string | null | undefined
 ): Promise<ProgramContext | null> {
-  const programId = activeProgramId ?? BEASTMODE_PROGRAM_ID;
+  const programId = activeProgramId ?? DEFAULT_PROGRAM_ID;
   const { data: program, error: pe } = await supabase
     .from("training_programs")
     .select("*")

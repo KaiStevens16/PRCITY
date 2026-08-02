@@ -2,7 +2,7 @@ import { rotationOrderFromIndex } from "@/lib/rotation";
 import { ProgramTemplateCard } from "@/components/program/template-card";
 import { ProgramSwitcher } from "@/components/program/program-switcher";
 import {
-  BEASTMODE_PROGRAM_ID,
+  DEFAULT_PROGRAM_ID,
   programDisplayTitle,
 } from "@/lib/training-programs";
 import { getCachedProgramPageData, getCachedProgramState } from "@/lib/cached-queries";
@@ -15,7 +15,7 @@ export default async function ProgramPage({ searchParams }: ProgramPageProps) {
   const sp = await searchParams;
 
   const programState = await getCachedProgramState();
-  const activeProgramId = programState?.active_program_id ?? BEASTMODE_PROGRAM_ID;
+  const activeProgramId = programState?.active_program_id ?? DEFAULT_PROGRAM_ID;
   const viewingProgramId = sp.view ?? activeProgramId;
 
   const { programs, state, templates, exercisesByTemplate } =

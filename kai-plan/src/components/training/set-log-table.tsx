@@ -15,7 +15,6 @@ import {
   parseWeightInput,
   weightDraftFromSet,
 } from "@/lib/bw-set";
-import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 
 type Props = {
@@ -40,26 +39,29 @@ function serverDraft(s: SetLog): Draft {
   };
 }
 
-export function SetLogTable({ sessionExerciseId, sets }: Props) {
-  const router = useRouter();
+export function SetLogTable({ sessionExerciseId, sets: serverSets }: Props) {
   const [pending, startTransition] = useTransition();
+  const [sets, setSets] = useState(serverSets);
   const [draft, setDraft] = useState<Record<string, Draft>>({});
   const draftRef = useRef<Record<string, Draft>>({});
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const pendingFields = useRef<Set<string>>(new Set());
   const syncKey = useRef("");
+  const localMutating = useRef(false);
 
   useEffect(() => {
     draftRef.current = draft;
   }, [draft]);
 
   useEffect(() => {
-    const k = draftKey(sets);
+    if (localMutating.current) return;
+    const k = draftKey(serverSets);
     if (k === syncKey.current) return;
     syncKey.current = k;
+    setSets(serverSets);
 
     const next: Record<string, Draft> = {};
-    for (const s of sets) {
+    for (const s of serverSets) {
       const fromServer = serverDraft(s);
       const local = draftRef.current[s.id];
       if (!local) {
@@ -74,7 +76,7 @@ export function SetLogTable({ sessionExerciseId, sets }: Props) {
     }
     setDraft(next);
     draftRef.current = next;
-  }, [sets]);
+  }, [serverSets]);
 
   const flushSave = useCallback(
     async (id: string, field: Field, raw: string) => {
@@ -110,6 +112,7 @@ export function SetLogTable({ sessionExerciseId, sets }: Props) {
   );
 
   function scheduleSave(id: string, field: Field, raw: string) {
+    if (id.startsWith("optimistic-")) return;
     const key = `${id}:${field}`;
     pendingFields.current.add(key);
     if (timers.current[key]) clearTimeout(timers.current[key]);
@@ -126,6 +129,84 @@ export function SetLogTable({ sessionExerciseId, sets }: Props) {
       const u = { ...d, [id]: { ...d[id], [part]: value } };
       draftRef.current = u;
       return u;
+    });
+  }
+
+  function onAddSet() {
+    const optimisticId = `optimistic-${Date.now()}`;
+    const nextNum = (sets[sets.length - 1]?.set_number ?? 0) + 1;
+    const optimistic: SetLog = {
+      id: optimisticId,
+      session_exercise_id: sessionExerciseId,
+      set_number: nextNum,
+      weight: null,
+      reps: null,
+      rpe: null,
+      set_note: null,
+      completed: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    localMutating.current = true;
+    setSets((prev) => [...prev, optimistic]);
+    setDraft((d) => {
+      const u = { ...d, [optimisticId]: { w: "", r: "", n: "" } };
+      draftRef.current = u;
+      return u;
+    });
+
+    startTransition(async () => {
+      const r = await addSetToSessionExercise(sessionExerciseId);
+      if (r && "set" in r && r.set) {
+        const real = r.set;
+        const draftRow = draftRef.current[optimisticId];
+        setSets((prev) => prev.map((s) => (s.id === optimisticId ? real : s)));
+        setDraft((d) => {
+          const { [optimisticId]: row, ...rest } = d;
+          const u = {
+            ...rest,
+            [real.id]: row ?? { w: "", r: "", n: "" },
+          };
+          draftRef.current = u;
+          return u;
+        });
+        if (draftRow?.w) void flushSave(real.id, "weight", draftRow.w);
+        if (draftRow?.r) void flushSave(real.id, "reps", draftRow.r);
+        if (draftRow?.n) void flushSave(real.id, "set_note", draftRow.n);
+        syncKey.current = "";
+        localMutating.current = false;
+        return;
+      }
+      setSets((prev) => prev.filter((s) => s.id !== optimisticId));
+      setDraft((d) => {
+        const { [optimisticId]: _, ...rest } = d;
+        draftRef.current = rest;
+        return rest;
+      });
+      localMutating.current = false;
+    });
+  }
+
+  function onRemoveSet(id: string) {
+    const prev = sets;
+    localMutating.current = true;
+    setSets((list) => list.filter((s) => s.id !== id));
+    setDraft((d) => {
+      const { [id]: _, ...rest } = d;
+      draftRef.current = rest;
+      return rest;
+    });
+    startTransition(async () => {
+      if (id.startsWith("optimistic-")) {
+        localMutating.current = false;
+        return;
+      }
+      const r = await removeSetLog(id);
+      if (r && "error" in r && r.error) {
+        setSets(prev);
+        syncKey.current = "";
+      }
+      localMutating.current = false;
     });
   }
 
@@ -158,11 +239,10 @@ export function SetLogTable({ sessionExerciseId, sets }: Props) {
                 </td>
                 <td className="px-1 py-1">
                   <Input
+                    className="h-9 w-16 border-border/60 bg-card/80 font-mono text-sm tabular-nums"
                     aria-label={`Set ${s.set_number} weight`}
-                    className="h-9 w-[4.25rem] border-border/60 bg-card/80 font-mono text-sm tabular-nums"
-                    value={d.w}
-                    type="text"
                     placeholder="—"
+                    value={d.w}
                     onChange={(e) => {
                       const v = e.target.value;
                       updateDraft(s.id, "w", v);
@@ -172,10 +252,10 @@ export function SetLogTable({ sessionExerciseId, sets }: Props) {
                 </td>
                 <td className="px-1 py-1">
                   <Input
+                    className="h-9 w-14 border-border/60 bg-card/80 font-mono text-sm tabular-nums"
                     aria-label={`Set ${s.set_number} reps`}
-                    className="h-9 w-[3.25rem] border-border/60 bg-card/80 font-mono text-sm tabular-nums"
+                    placeholder="—"
                     value={d.r}
-                    type="text"
                     onChange={(e) => {
                       const v = e.target.value;
                       updateDraft(s.id, "r", v);
@@ -201,12 +281,7 @@ export function SetLogTable({ sessionExerciseId, sets }: Props) {
                     type="button"
                     className="inline-flex h-9 w-9 items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10"
                     aria-label={`Delete set ${s.set_number}`}
-                    onClick={() => {
-                      startTransition(async () => {
-                        await removeSetLog(s.id);
-                        router.refresh();
-                      });
-                    }}
+                    onClick={() => onRemoveSet(s.id)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -221,12 +296,7 @@ export function SetLogTable({ sessionExerciseId, sets }: Props) {
           type="button"
           className="rounded-md border border-border/60 px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
           disabled={pending}
-          onClick={() => {
-            startTransition(async () => {
-              await addSetToSessionExercise(sessionExerciseId);
-              router.refresh();
-            });
-          }}
+          onClick={onAddSet}
         >
           + Add Set
         </button>

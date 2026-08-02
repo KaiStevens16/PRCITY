@@ -26,8 +26,8 @@ function formatStrengthSet(s: HistoryWorkoutSet): string | null {
   return line;
 }
 
-function formatRunSet(s: HistoryWorkoutSet): string | null {
-  const line = formatRunHumanLine(s.weight, s.reps);
+function formatRunSet(s: HistoryWorkoutSet, modality: string): string | null {
+  const line = formatRunHumanLine(s.weight, s.reps, modality);
   return line === "—" ? null : line;
 }
 
@@ -54,7 +54,7 @@ export function buildSessionWorkoutExportText(
       if (b.completed) setLines.push(RING_STABILITY_INSTRUCTION);
     } else {
       for (const s of b.sets) {
-        const line = b.isRunWarmup ? formatRunSet(s) : formatStrengthSet(s);
+        const line = b.isRunWarmup ? formatRunSet(s, b.title) : formatStrengthSet(s);
         if (line) setLines.push(line);
       }
     }

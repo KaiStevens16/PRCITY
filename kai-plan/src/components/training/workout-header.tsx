@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  addSessionCardio,
   completeSession,
   startSession,
   updateSessionFields,
@@ -21,7 +22,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { HistoryDeleteSessionDialog } from "@/components/history/history-delete-session-dialog";
 import { Play, CheckCircle2, CloudAlert, XCircle } from "lucide-react";
 
@@ -32,6 +33,8 @@ type Props = {
   programPreworkoutNote?: string | null;
   /** Exercises completed / total (in-progress sessions only) */
   sessionProgress?: { done: number; total: number } | null;
+  /** Hide Add Run/Bike when session already has cardio */
+  hasCardio?: boolean;
 };
 
 export function WorkoutHeader({
@@ -40,23 +43,27 @@ export function WorkoutHeader({
   isLightDay,
   programPreworkoutNote,
   sessionProgress,
+  hasCardio = false,
 }: Props) {
   const router = useRouter();
   const [finishing, setFinishing] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
-  const [sessionNotes, setSessionNotes] = useState(
-    session?.session_notes ?? ""
-  );
   const [weirdOpen, setWeirdOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [weirdNotes, setWeirdNotes] = useState(
     session?.weird_day_notes ?? ""
   );
+  const [cardioPickOpen, setCardioPickOpen] = useState(false);
+  const [cardioAddedLocally, setCardioAddedLocally] = useState(false);
+  const [, startCardioTransition] = useTransition();
+
+  const [starting, setStarting] = useState(false);
+  const [, startSessionTransition] = useTransition();
 
   useEffect(() => {
-    setSessionNotes(session?.session_notes ?? "");
     setWeirdNotes(session?.weird_day_notes ?? "");
-  }, [session?.id, session?.session_notes, session?.weird_day_notes]);
+    if (hasCardio) setCardioAddedLocally(false);
+  }, [session?.id, session?.weird_day_notes, hasCardio]);
 
   const accent = phaseAccentClass(template.phase);
   const pct =
@@ -64,14 +71,16 @@ export function WorkoutHeader({
       ? Math.round((sessionProgress.done / sessionProgress.total) * 100)
       : 0;
 
-  async function onStart() {
-    const r = await startSession(template.id);
-    if (r && typeof r === "object" && "sessionId" in r && r.sessionId) {
+  function onStart() {
+    setStarting(true);
+    startSessionTransition(async () => {
+      const r = await startSession(template.id);
+      if (r && typeof r === "object" && "error" in r && r.error && !("sessionId" in r && r.sessionId)) {
+        setStarting(false);
+        return;
+      }
       router.refresh();
-      return;
-    }
-    if (r && typeof r === "object" && "error" in r && r.error) return;
-    router.refresh();
+    });
   }
 
   async function onFinish() {
@@ -79,7 +88,6 @@ export function WorkoutHeader({
     setFinishing(true);
     await completeSession({
       sessionId: session.id,
-      sessionNotes: sessionNotes || undefined,
     });
     setFinishing(false);
     setSummaryOpen(true);
@@ -88,6 +96,20 @@ export function WorkoutHeader({
   async function onQuickRest() {
     await quickCompleteRestDay(template.id);
     router.refresh();
+  }
+
+  async function onAddCardio(modality: "Run" | "Bike") {
+    if (!session) return;
+    setCardioPickOpen(false);
+    setCardioAddedLocally(true);
+    startCardioTransition(async () => {
+      const r = await addSessionCardio({ sessionId: session.id, modality });
+      if (r && "error" in r && r.error) {
+        setCardioAddedLocally(false);
+        return;
+      }
+      router.refresh();
+    });
   }
 
   return (
@@ -129,15 +151,26 @@ export function WorkoutHeader({
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             {!session && !isLightDay && (
-              <Button size="lg" className="gap-2 shadow-md" onClick={onStart}>
+              <Button
+                size="lg"
+                className="gap-2 shadow-md"
+                disabled={starting}
+                onClick={onStart}
+              >
                 <Play className="h-4 w-4 fill-current" />
-                Start session
+                {starting ? "Starting…" : "Start session"}
               </Button>
             )}
             {isLightDay && !session && (
               <>
-                <Button size="lg" variant="secondary" className="gap-2" onClick={onStart}>
-                  Log session
+                <Button
+                  size="lg"
+                  variant="secondary"
+                  className="gap-2"
+                  disabled={starting}
+                  onClick={onStart}
+                >
+                  {starting ? "Starting…" : "Log session"}
                 </Button>
                 <Button size="lg" variant="outline" onClick={onQuickRest}>
                   Mark done
@@ -204,27 +237,49 @@ export function WorkoutHeader({
 
         {session?.status === "in_progress" ? (
           <>
+            {!hasCardio && !cardioAddedLocally ? (
+              <div className="rounded-xl border border-border/60 bg-card/40 p-4">
+                {!cardioPickOpen ? (
+                  <button
+                    type="button"
+                    className="text-sm text-foreground/90 underline-offset-2 hover:underline"
+                    onClick={() => setCardioPickOpen(true)}
+                  >
+                    Add Run/Bike
+                  </button>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="text-muted-foreground">Add:</span>
+                    <button
+                      type="button"
+                      className="font-medium text-foreground underline-offset-2 hover:underline"
+                      onClick={() => void onAddCardio("Run")}
+                    >
+                      Run
+                    </button>
+                    <span className="text-muted-foreground">·</span>
+                    <button
+                      type="button"
+                      className="font-medium text-foreground underline-offset-2 hover:underline"
+                      onClick={() => void onAddCardio("Bike")}
+                    >
+                      Bike
+                    </button>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={() => setCardioPickOpen(false)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : null}
             <WarmupChecklistPanel
               sessionId={session.id}
               checklist={parseWarmupChecklist(session.warmup_checklist)}
             />
-            <div className="rounded-xl border border-border/60 bg-card/30 p-4">
-              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Session notes
-              </p>
-              <Textarea
-                value={sessionNotes}
-                onChange={(e) => setSessionNotes(e.target.value)}
-                onBlur={() =>
-                  void updateSessionFields({
-                    sessionId: session.id,
-                    sessionNotes: sessionNotes || null,
-                  })
-                }
-                placeholder="Anything global for this session…"
-                className="min-h-[72px] resize-y border-border/60 bg-background/50 text-sm"
-              />
-            </div>
           </>
         ) : null}
       </div>

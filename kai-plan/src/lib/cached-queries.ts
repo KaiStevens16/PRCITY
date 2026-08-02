@@ -151,7 +151,9 @@ export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
             .from("session_exercises")
             .select("id")
             .in("session_id", completedWeekIds)
-            .or("planned_exercise_name.eq.Run,actual_exercise_name.eq.Run");
+            .or(
+              "planned_exercise_name.eq.Run,actual_exercise_name.eq.Run,planned_exercise_name.eq.Bike,actual_exercise_name.eq.Bike"
+            );
           const runSeIds = (runEx ?? []).map((x) => x.id);
           if (!runSeIds.length) return 0;
           const { data: mileLogs } = await supabase
@@ -180,7 +182,7 @@ export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
           const byExercise = new Map<string, { e1: number; weight: number; reps: number }>();
           for (const row of logs ?? []) {
             const name = seName.get(row.session_exercise_id) ?? "Lift";
-            if (name === "Run") continue;
+            if (name === "Run" || name === "Bike") continue;
             const e1 = epley1Rm(Number(row.weight), Number(row.reps));
             if (e1 == null) continue;
             const prev = byExercise.get(name);

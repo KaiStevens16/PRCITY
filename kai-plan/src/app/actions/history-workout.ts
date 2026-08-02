@@ -127,8 +127,8 @@ export async function getHistorySessionWorkout(sessionId: string): Promise<
   const blocks: HistoryWorkoutBlock[] = rows.map((r) => {
     const group = exerciseGroupFromRow(r);
     const isRun =
-      isRunWarmupExercise(r.actual_exercise_name) &&
-      (group ?? "").toLowerCase() === "warm-up";
+      isRunWarmupExercise(r.actual_exercise_name) ||
+      isRunWarmupExercise(r.planned_exercise_name);
     const isRingStability = isRingStabilityWork(r.actual_exercise_name);
 
     return {

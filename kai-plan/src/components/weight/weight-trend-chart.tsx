@@ -13,6 +13,8 @@ import { Label } from "@/components/ui/label";
 
 const FUTURE_DAYS = 20;
 const BODY_FAT_AXIS_MIN = 10;
+/** Chow-style structural breaks for piecewise OLS weight trend. */
+const STRUCTURAL_BREAKS = ["2026-04-27", "2026-08-02"] as const;
 
 /** Tighter than default theme so the plot uses more horizontal space. */
 const CHART_MARGIN = {
@@ -35,6 +37,15 @@ function addDaysToIso(iso: string, days: number): string {
   return toDateString(dt);
 }
 
+function segmentIndexForDate(iso: string): number {
+  let seg = 0;
+  for (const b of STRUCTURAL_BREAKS) {
+    if (iso >= b) seg += 1;
+    else break;
+  }
+  return seg;
+}
+
 function linearFit(xs: number[], ys: number[]): { slope: number; intercept: number } {
   const n = xs.length;
   if (n < 2) return { slope: 0, intercept: ys[0] ?? 0 };
@@ -53,6 +64,37 @@ function linearFit(xs: number[], ys: number[]): { slope: number; intercept: numb
   const intercept = (sy - slope * sx) / n;
   return { slope, intercept };
 }
+
+type SegmentFit = {
+  slope: number;
+  intercept: number;
+  residualSd: number | null;
+  indices: number[];
+};
+
+function fitPiecewiseSegments(
+  dates: string[],
+  xs: number[],
+  ys: number[]
+): SegmentFit[] {
+  const nSeg = STRUCTURAL_BREAKS.length + 1;
+  const buckets: number[][] = Array.from({ length: nSeg }, () => []);
+  for (let i = 0; i < dates.length; i++) {
+    buckets[segmentIndexForDate(dates[i])]!.push(i);
+  }
+
+  return buckets.map((indices) => {
+    if (!indices.length) {
+      return { slope: 0, intercept: 0, residualSd: null, indices };
+    }
+    const segX = indices.map((i) => xs[i]!);
+    const segY = indices.map((i) => ys[i]!);
+    const { slope, intercept } = linearFit(segX, segY);
+    const residualSd = regressionResidualSd(segX, segY, slope, intercept);
+    return { slope, intercept, residualSd, indices };
+  });
+}
+
 
 function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
@@ -143,10 +185,18 @@ export function WeightTrendChart({ rows, dexaScans = [] }: Props) {
 
   const t0 = parseIsoToMs(rows[0].date);
   const xs = rows.map((r) => (parseIsoToMs(r.date) - t0) / 86_400_000);
-  const { slope, intercept } = linearFit(xs, w);
+  const segments = fitPiecewiseSegments(dates, xs, w);
+
+  const lastIso = rows[rows.length - 1].date;
+  const lastSegIdx = segmentIndexForDate(lastIso);
+  const activeSeg =
+    segments[lastSegIdx]!.indices.length > 0
+      ? segments[lastSegIdx]!
+      : [...segments].reverse().find((s) => s.indices.length > 0) ?? segments[0]!;
+  const { slope, intercept } = activeSeg;
+  const residualSd = activeSeg.residualSd;
 
   const lastX = xs[xs.length - 1];
-  const lastIso = rows[rows.length - 1].date;
 
   const futureDates: string[] = [];
   const futureCenters: number[] = [];
@@ -161,14 +211,20 @@ export function WeightTrendChart({ rows, dexaScans = [] }: Props) {
 
   const futureLabels = futureDates.map(formatLongDate);
 
-  const residualSd = regressionResidualSd(xs, w, slope, intercept);
   const pointZ = xs.map((x, i) => {
-    if (residualSd == null || residualSd < 1e-9) return 0;
-    return (w[i] - (slope * x + intercept)) / residualSd;
+    const seg = segments[segmentIndexForDate(dates[i]!)]!;
+    const sd = seg.residualSd ?? residualSd;
+    if (sd == null || sd < 1e-9) return 0;
+    return (w[i]! - (seg.slope * x + seg.intercept)) / sd;
   });
   const pointColors = pointZ.map(varianceColorFromZ);
-  const regressionLineDates = [...dates, ...futureDates];
-  const xDaysBand = regressionLineDates.map(
+
+  /** ±1 SD ribbon: last-segment history + future projection. */
+  const bandDates = [
+    ...activeSeg.indices.map((i) => dates[i]!),
+    ...futureDates,
+  ];
+  const xDaysBand = bandDates.map(
     (iso) => (parseIsoToMs(iso) - t0) / 86_400_000
   );
   const yHatOnBand = xDaysBand.map((xd) => slope * xd + intercept);
@@ -176,6 +232,14 @@ export function WeightTrendChart({ rows, dexaScans = [] }: Props) {
     residualSd != null ? yHatOnBand.map((y) => y + residualSd) : [];
   const lowerBand =
     residualSd != null ? yHatOnBand.map((y) => y - residualSd) : [];
+  const sdRibbonX =
+    residualSd != null && bandDates.length
+      ? [...bandDates, ...[...bandDates].reverse()]
+      : [];
+  const sdRibbonY =
+    residualSd != null && upperBand.length
+      ? [...upperBand, ...[...lowerBand].reverse()]
+      : [];
 
   /** Lock primary axes; include ±1 SD ribbon in range when shown. */
   const allWeightY = [...w, ...futureCenters];
@@ -276,14 +340,45 @@ export function WeightTrendChart({ rows, dexaScans = [] }: Props) {
     },
   };
 
-  const sdRibbonX =
-    residualSd != null && regressionLineDates.length
-      ? [...regressionLineDates, ...[...regressionLineDates].reverse()]
-      : [];
-  const sdRibbonY =
-    residualSd != null && upperBand.length
-      ? [...upperBand, ...[...lowerBand].reverse()]
-      : [];
+  /** Piecewise OLS trend per structural segment (≥2 points). */
+  const trendTraces: Data[] = [];
+  for (const seg of segments) {
+    if (seg.indices.length < 2) continue;
+    const tx = seg.indices.map((i) => dates[i]!);
+    const ty = seg.indices.map(
+      (i) => seg.slope * xs[i]! + seg.intercept
+    );
+    trendTraces.push({
+      type: "scatter",
+      mode: "lines",
+      name: trendTraces.length === 0 ? "Trend" : undefined,
+      showlegend: trendTraces.length === 0,
+      hoverinfo: "skip",
+      x: tx,
+      y: ty,
+      line: {
+        color: "hsl(220 10% 48% / 0.55)",
+        width: 1.5,
+        shape: "linear",
+      },
+    });
+  }
+
+  const breakMarkerTraces: Data[] = STRUCTURAL_BREAKS.filter(
+    (b) => b >= dates[0]! && b <= futureDates[futureDates.length - 1]!
+  ).map((b) => ({
+    type: "scatter",
+    mode: "lines",
+    showlegend: false,
+    hoverinfo: "skip",
+    x: [b, b],
+    y: yRangeFixed,
+    line: {
+      color: "hsl(220 10% 55% / 0.35)",
+      width: 1,
+      dash: "dot",
+    },
+  }));
 
   const sdBandTrace: Data = {
     type: "scatter",
@@ -312,7 +407,13 @@ export function WeightTrendChart({ rows, dexaScans = [] }: Props) {
     if (showOneSd && residualSd != null && sdRibbonX.length) {
       out.push(sdBandTrace);
     }
-    out.push(...weightSegmentTraces, weightMarkerTrace, projectionTrace);
+    out.push(
+      ...breakMarkerTraces,
+      ...trendTraces,
+      ...weightSegmentTraces,
+      weightMarkerTrace,
+      projectionTrace
+    );
     if (showBodyFat && canShowBf) out.push(bodyFatTrace);
     return out;
   })();

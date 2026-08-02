@@ -36,7 +36,7 @@ type Props = { params: Promise<{ slug: string }> };
 export default async function LiftDetailPage({ params }: Props) {
   const { slug } = await params;
   const name = exerciseFromSlug(slug);
-  if (name === "Run") notFound();
+  if (name === "Run" || name === "Bike") notFound();
   const supabase = createClient();
   const userId = getSoloUserId();
 

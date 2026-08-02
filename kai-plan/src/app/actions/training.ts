@@ -6,8 +6,10 @@ import { todayLocalDateString } from "@/lib/date";
 import { nextRotationIndex, nextRotationIndexAfterTemplate } from "@/lib/rotation";
 import { isRunWarmupExercise } from "@/lib/run-warmup";
 import { isRingStabilityWork } from "@/lib/ring-stability-work";
+import { isExactTargetSetsExercise } from "@/lib/exact-target-sets";
 import { emptyWarmupChecklist } from "@/lib/warmup-checklist";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { after } from "next/server";
 import { revalidateTrainingCaches } from "@/lib/cache-tags";
 
 async function rotationLengthForTemplate(
@@ -27,39 +29,53 @@ async function rotationLengthForTemplate(
 function revalidateAll() {
   revalidateTrainingCaches();
   revalidatePath("/today");
+  revalidatePath("/");
+  revalidatePath("/history");
 }
+
+/** Heavy cache bust after the response is sent — keeps Finish / Start feeling instant. */
+function revalidateAllAfter() {
+  after(() => {
+    revalidateTrainingCaches();
+  });
+  revalidatePath("/today");
+  revalidatePath("/");
+  revalidatePath("/history");
+}
+
 
 export async function startSession(templateId: string) {
   const supabase = createClient();
   const userId = getSoloUserId();
 
-  const { data: existing } = await supabase
-    .from("sessions")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("status", "in_progress")
-    .order("started_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const [existingRes, templateRes, stateRes] = await Promise.all([
+    supabase
+      .from("sessions")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("status", "in_progress")
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase.from("workout_templates").select("*").eq("id", templateId).single(),
+    supabase
+      .from("program_state")
+      .select("current_rotation_index")
+      .eq("user_id", userId)
+      .single(),
+  ]);
 
-  if (existing) {
-    return { error: "Already have an in-progress session", sessionId: existing.id };
+  if (existingRes.data) {
+    return {
+      error: "Already have an in-progress session",
+      sessionId: existingRes.data.id,
+    };
   }
 
-  const { data: template, error: te } = await supabase
-    .from("workout_templates")
-    .select("*")
-    .eq("id", templateId)
-    .single();
-  if (te || !template) return { error: "Template not found" };
+  const template = templateRes.data;
+  if (templateRes.error || !template) return { error: "Template not found" };
 
-  const { data: state } = await supabase
-    .from("program_state")
-    .select("current_rotation_index")
-    .eq("user_id", userId)
-    .single();
-
-  const rotationSnap = state?.current_rotation_index ?? 0;
+  const rotationSnap = stateRes.data?.current_rotation_index ?? 0;
   const dateStr = todayLocalDateString();
 
   const { data: session, error: se } = await supabase
@@ -89,40 +105,66 @@ export async function startSession(templateId: string) {
 
   if (ee) return { error: ee.message };
 
-  for (const ex of exercises ?? []) {
-    const { data: seRow, error: ie } = await supabase
-      .from("session_exercises")
-      .insert({
+  const templateExercises = exercises ?? [];
+  if (!templateExercises.length) {
+    revalidatePath("/today");
+    return { sessionId: session.id };
+  }
+
+  const { data: seRows, error: ie } = await supabase
+    .from("session_exercises")
+    .insert(
+      templateExercises.map((ex) => ({
         session_id: session.id,
         template_exercise_id: ex.id,
         planned_exercise_name: ex.exercise_name,
         actual_exercise_name: ex.exercise_name,
         order_index: ex.order_index,
-      })
-      .select("id")
-      .single();
+      }))
+    )
+    .select("id, order_index, planned_exercise_name");
 
-    if (ie || !seRow) continue;
+  if (ie || !seRows?.length) {
+    revalidatePath("/today");
+    return { sessionId: session.id, error: ie?.message };
+  }
 
-    const isRunWarmupSlot =
-      isRunWarmupExercise(ex.exercise_name) &&
-      (ex.exercise_group ?? "").trim().toLowerCase() === "warm-up";
+  const seByOrder = new Map(seRows.map((row) => [row.order_index, row]));
+  const setLogRows: {
+    session_exercise_id: string;
+    set_number: number;
+    completed: boolean;
+  }[] = [];
+
+  for (const ex of templateExercises) {
+    const seRow = seByOrder.get(ex.order_index);
+    if (!seRow) continue;
+
+    const isRunWarmupSlot = isRunWarmupExercise(ex.exercise_name);
     const isRingStabilitySlot = isRingStabilityWork(ex.exercise_name);
-    /** Strength slots use target+1 working sets; run warm-up is one triplet row; ring stability is checkbox-only. */
+    const exactSets = isExactTargetSetsExercise(ex.exercise_name);
     const initialSetCount = isRunWarmupSlot
       ? 1
       : isRingStabilitySlot
         ? 0
-        : Math.max(1, ex.target_sets + 1);
-    const rows = Array.from({ length: initialSetCount }, (_, i) => ({
-      session_exercise_id: seRow.id,
-      set_number: i + 1,
-      completed: false,
-    }));
-    if (rows.length) await supabase.from("set_logs").insert(rows);
+        : exactSets
+          ? Math.max(1, ex.target_sets)
+          : Math.max(1, ex.target_sets + 1);
+
+    for (let i = 0; i < initialSetCount; i++) {
+      setLogRows.push({
+        session_exercise_id: seRow.id,
+        set_number: i + 1,
+        completed: false,
+      });
+    }
   }
 
-  revalidateAll();
+  if (setLogRows.length) {
+    await supabase.from("set_logs").insert(setLogRows);
+  }
+
+  revalidatePath("/today");
   return { sessionId: session.id };
 }
 
@@ -198,7 +240,7 @@ export async function completeSession(input: {
     .update({ current_rotation_index: nextIndex })
     .eq("user_id", userId);
 
-  revalidateAll();
+  revalidateAllAfter();
   return { ok: true };
 }
 
@@ -240,24 +282,25 @@ export async function addSetToSessionExercise(sessionExerciseId: string) {
   if (readErr) return { error: readErr.message };
 
   const nextSetNumber = (existing?.set_number ?? 0) + 1;
-  const { error } = await supabase.from("set_logs").insert({
-    session_exercise_id: sessionExerciseId,
-    set_number: nextSetNumber,
-    completed: false,
-  });
-  if (error) return { error: error.message };
+  const { data: set, error } = await supabase
+    .from("set_logs")
+    .insert({
+      session_exercise_id: sessionExerciseId,
+      set_number: nextSetNumber,
+      completed: false,
+    })
+    .select("*")
+    .single();
+  if (error || !set) return { error: error?.message ?? "Failed to add set." };
 
-  revalidatePath("/today");
-  return { ok: true };
+  return { ok: true as const, set };
 }
 
 export async function removeSetLog(setLogId: string) {
   const supabase = createClient();
   const { error } = await supabase.from("set_logs").delete().eq("id", setLogId);
   if (error) return { error: error.message };
-
-  revalidatePath("/today");
-  return { ok: true };
+  return { ok: true as const };
 }
 
 export async function removeLastSetFromSessionExercise(sessionExerciseId: string) {
@@ -276,8 +319,7 @@ export async function removeLastSetFromSessionExercise(sessionExerciseId: string
   const { error } = await supabase.from("set_logs").delete().eq("id", lastSet.id);
   if (error) return { error: error.message };
 
-  revalidatePath("/today");
-  return { ok: true };
+  return { ok: true as const };
 }
 
 /** Run warm-up: miles → weight, minutes → reps, avg mph → rpe */
@@ -341,7 +383,6 @@ export async function updateSessionExercise(input: {
     input.weirdExercise !== undefined;
 
   if (needsRevalidate) {
-    revalidateTrainingCaches();
     revalidatePath("/today");
   }
   return { ok: true };
@@ -355,7 +396,6 @@ export async function removeSessionExercise(sessionExerciseId: string) {
     .eq("id", sessionExerciseId);
 
   if (error) return { error: error.message };
-  revalidateTrainingCaches();
   revalidatePath("/today");
   return { ok: true };
 }
@@ -394,13 +434,14 @@ export async function addSessionExerciseAfter(input: {
 
   if (shiftErr) return { error: shiftErr.message };
 
-  for (const row of shiftRows ?? []) {
-    const { error: upErr } = await supabase
-      .from("session_exercises")
-      .update({ order_index: row.order_index + 1 })
-      .eq("id", row.id);
-    if (upErr) return { error: upErr.message };
-  }
+  await Promise.all(
+    (shiftRows ?? []).map((row) =>
+      supabase
+        .from("session_exercises")
+        .update({ order_index: row.order_index + 1 })
+        .eq("id", row.id)
+    )
+  );
 
   const { data: seRow, error: insErr } = await supabase
     .from("session_exercises")
@@ -424,7 +465,75 @@ export async function addSessionExerciseAfter(input: {
   });
   if (logErr) return { error: logErr.message };
 
-  revalidateAll();
+  revalidatePath("/today");
+  return { ok: true };
+}
+
+/** Prepend Run or Bike cardio at the top of an in-progress session. */
+export async function addSessionCardio(input: {
+  sessionId: string;
+  modality: "Run" | "Bike";
+}) {
+  const supabase = createClient();
+  const userId = getSoloUserId();
+  const modality = input.modality === "Bike" ? "Bike" : "Run";
+
+  const { data: sess, error: sessErr } = await supabase
+    .from("sessions")
+    .select("id, status")
+    .eq("id", input.sessionId)
+    .eq("user_id", userId)
+    .single();
+
+  if (sessErr || !sess) return { error: "Session not found." };
+  if (sess.status !== "in_progress") {
+    return { error: "You can only add cardio during an in-progress session." };
+  }
+
+  const { data: existing } = await supabase
+    .from("session_exercises")
+    .select("id, planned_exercise_name, actual_exercise_name, order_index")
+    .eq("session_id", input.sessionId);
+
+  const alreadyHasCardio = (existing ?? []).some(
+    (row) =>
+      isRunWarmupExercise(row.planned_exercise_name) ||
+      isRunWarmupExercise(row.actual_exercise_name)
+  );
+  if (alreadyHasCardio) {
+    return { error: "This session already has Run/Bike." };
+  }
+
+  /** Insert ahead of existing slots without N sequential order shifts. */
+  const minOrder = (existing ?? []).reduce(
+    (m, row) => Math.min(m, row.order_index),
+    0
+  );
+  const orderIndex = minOrder - 1;
+
+  const { data: seRow, error: insErr } = await supabase
+    .from("session_exercises")
+    .insert({
+      session_id: input.sessionId,
+      template_exercise_id: null,
+      planned_exercise_name: modality,
+      actual_exercise_name: modality,
+      order_index: orderIndex,
+      completed: false,
+    })
+    .select("id")
+    .single();
+
+  if (insErr || !seRow) return { error: insErr?.message ?? "Failed to add cardio." };
+
+  const { error: logErr } = await supabase.from("set_logs").insert({
+    session_exercise_id: seRow.id,
+    set_number: 1,
+    completed: false,
+  });
+  if (logErr) return { error: logErr.message };
+
+  revalidatePath("/today");
   return { ok: true };
 }
 
@@ -457,8 +566,8 @@ export async function updateSessionFields(input: {
     input.weirdDay !== undefined || input.weirdDayNotes !== undefined;
 
   if (needsRevalidate) {
-    revalidateTrainingCaches();
     revalidatePath("/today");
+    revalidatePath("/");
     revalidatePath(`/history/session/${input.sessionId}`);
   }
   return { ok: true };

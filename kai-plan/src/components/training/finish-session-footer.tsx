@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { completeSession } from "@/app/actions/training";
 import { Button } from "@/components/ui/button";
@@ -13,12 +13,18 @@ type Props = {
 export function FinishSessionFooter({ sessionId }: Props) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
+  const [, startTransition] = useTransition();
 
-  async function onFinish() {
+  function onFinish() {
     setPending(true);
-    await completeSession({ sessionId });
-    setPending(false);
-    router.push("/");
+    startTransition(async () => {
+      const r = await completeSession({ sessionId });
+      if (r && "error" in r && r.error) {
+        setPending(false);
+        return;
+      }
+      router.push("/");
+    });
   }
 
   return (

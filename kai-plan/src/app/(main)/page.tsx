@@ -141,7 +141,7 @@ export default async function CommandCenterPage() {
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-semibold">
               <Footprints className="h-4 w-4 text-[hsl(142_55%_52%)]" />
-              Run volume
+              Cardio miles
             </CardTitle>
           </CardHeader>
           <CardContent>

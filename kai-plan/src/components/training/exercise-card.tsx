@@ -5,14 +5,14 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { LastTimePanel } from "@/components/training/last-time-panel";
+import { LastTimeLazy } from "@/components/training/last-time-lazy";
 import { SetLogTable } from "@/components/training/set-log-table";
 import { RunWarmupSetLog } from "@/components/training/run-warmup-set-log";
 import { isRunWarmupExercise } from "@/lib/run-warmup";
 import { isRingStabilityWork, RING_STABILITY_INSTRUCTION } from "@/lib/ring-stability-work";
 import { RingStabilityWorkLog } from "@/components/training/ring-stability-work-log";
 import { SubstitutionModal } from "@/components/training/substitution-modal";
-import type { LastSetPerformanceRow, SessionExercise, SetLog } from "@/types/database";
+import type { SessionExercise, SetLog } from "@/types/database";
 import { phaseStripeClass } from "@/lib/rotation";
 import { addSessionExerciseAfter, updateSessionExercise } from "@/app/actions/training";
 import { HYPERTROPHY_SQUAT_OR_SLOT } from "@/lib/lifts-chart";
@@ -36,7 +36,8 @@ type Props = {
   afterOrderIndex: number;
   sessionExercise: SessionExercise;
   sets: SetLog[];
-  lastTime: LastSetPerformanceRow[];
+  beforeDate: string;
+  excludeSessionId?: string | null;
   targetLabel: string;
   restLabel: string;
   intensityNote: string | null;
@@ -49,7 +50,8 @@ export function ExerciseCard({
   afterOrderIndex,
   sessionExercise,
   sets,
-  lastTime,
+  beforeDate,
+  excludeSessionId,
   targetLabel,
   restLabel,
   intensityNote,
@@ -224,7 +226,13 @@ export function ExerciseCard({
               </div>
             )}
             {!ringStability ? (
-              <LastTimePanel rows={lastTime} mode={runWarmup ? "run" : "default"} />
+              <LastTimeLazy
+                templateExerciseId={sessionExercise.template_exercise_id}
+                exerciseName={sessionExercise.planned_exercise_name}
+                beforeDate={beforeDate}
+                excludeSessionId={excludeSessionId}
+                mode={runWarmup ? "run" : "default"}
+              />
             ) : null}
             <div className="pt-1">
               <Button

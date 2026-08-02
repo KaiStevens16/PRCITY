@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -108,7 +107,6 @@ export function HistoryWorkoutSimple({
   initialWeirdDayNotes = null,
   suppressSessionWeirdBanner = false,
 }: Props) {
-  const router = useRouter();
   const [blocks, setBlocks] = useState<HistoryWorkoutBlock[] | null>(
     initialBlocks ?? null
   );
@@ -153,17 +151,12 @@ export function HistoryWorkoutSimple({
     void load();
   }, [initialBlocks, load]);
 
-  const refresh = () => {
-    void load();
-    router.refresh();
-  };
-
   const noteSection = (
     <HistorySessionNoteSection
       sessionId={sessionId}
       sessionNotes={sessionNotes}
       editable={editable}
-      onSaved={refresh}
+      onSaved={() => {}}
     />
   );
 
@@ -278,8 +271,9 @@ export function HistoryWorkoutSimple({
                       <HistoryRunSetRow
                         key={s.id}
                         set={s}
+                        modality={block.title}
                         editable={editable}
-                        onSaved={refresh}
+                        onSaved={() => {}}
                       />
                     ))
                   ) : (
@@ -288,7 +282,7 @@ export function HistoryWorkoutSimple({
                         key={s.id}
                         set={s}
                         editable={editable}
-                        onSaved={refresh}
+                        onSaved={() => {}}
                       />
                     ))
                   )}
@@ -387,10 +381,12 @@ function HistoryLiftSetRow({
 
 function HistoryRunSetRow({
   set,
+  modality,
   editable,
   onSaved,
 }: {
   set: HistoryWorkoutSet;
+  modality: string;
   editable: boolean;
   onSaved: () => void;
 }) {
@@ -431,7 +427,7 @@ function HistoryRunSetRow({
   };
 
   if (!editable) {
-    const line = formatRunHumanLine(set.weight, set.reps);
+    const line = formatRunHumanLine(set.weight, set.reps, modality);
     return <p className="font-mono text-[13px] tabular-nums text-muted-foreground">{line}</p>;
   }
 

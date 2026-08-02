@@ -1,10 +1,25 @@
 import type { LastSetPerformanceRow, SetLog } from "@/types/database";
 
-export function isRunWarmupExercise(name: string): boolean {
-  return name.trim().toLowerCase() === "run";
+export type CardioModality = "Run" | "Bike";
+
+export function cardioModalityFromName(name: string): CardioModality | null {
+  const n = name.trim().toLowerCase();
+  if (n === "run") return "Run";
+  if (n === "bike") return "Bike";
+  return null;
 }
 
-/** Hide trailing empty run rows (legacy templates created target_sets+1 sets). */
+/** Run or Bike cardio slots (miles / minutes / mph in set_logs). */
+export function isCardioWarmupExercise(name: string): boolean {
+  return cardioModalityFromName(name) != null;
+}
+
+/** @deprecated Prefer isCardioWarmupExercise — kept for call-site compatibility. */
+export function isRunWarmupExercise(name: string): boolean {
+  return isCardioWarmupExercise(name);
+}
+
+/** Hide trailing empty cardio rows (legacy templates created target_sets+1 sets). */
 export function visibleRunWarmupSets<
   T extends { weight: number | null; reps: number | null; rpe: number | null },
 >(sets: T[]): T[] {
@@ -20,11 +35,14 @@ export function visibleRunWarmupSets<
 /** One-line copy e.g. "10 min run / 1 mile" */
 export function formatRunHumanLine(
   weight: number | null,
-  reps: number | null
+  reps: number | null,
+  modality: CardioModality | string = "Run"
 ): string {
+  const kind = cardioModalityFromName(String(modality)) ?? "Run";
+  const verb = kind === "Bike" ? "bike" : "run";
   const min = reps != null && !Number.isNaN(Number(reps)) ? Math.round(Number(reps)) : null;
   const mi = weight != null && !Number.isNaN(Number(weight)) ? Number(weight) : null;
-  const left = min != null ? `${min} min run` : null;
+  const left = min != null ? `${min} min ${verb}` : null;
   let right: string | null = null;
   if (mi != null) {
     const rounded = Math.round(mi * 100) / 100;

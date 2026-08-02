@@ -3,17 +3,27 @@
 import { createClient } from "@/lib/supabase/server";
 import { getSoloUserId } from "@/lib/solo-user";
 import { nextRotationIndex, prevRotationIndex } from "@/lib/rotation";
-import { BEASTMODE_PROGRAM_ID } from "@/lib/training-programs";
-import { revalidatePath } from "next/cache";
-import { revalidateTrainingCaches } from "@/lib/cache-tags";
+import { DEFAULT_PROGRAM_ID } from "@/lib/training-programs";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { CACHE_TAGS, revalidateTrainingCaches } from "@/lib/cache-tags";
 
-function revalidate() {
+function revalidateNav() {
   revalidateTrainingCaches();
+  revalidatePath("/today");
+  revalidatePath("/program");
+  revalidatePath("/");
+}
+
+/** Protocol field edits — don't nuke dashboard/lifts/history caches. */
+function revalidateProtocolOnly() {
+  revalidateTag(CACHE_TAGS.protocol);
+  revalidateTag(CACHE_TAGS.program);
+  revalidatePath("/program");
   revalidatePath("/today");
 }
 
 async function activeRotationLength(supabase: ReturnType<typeof createClient>, programId: string | null) {
-  const id = programId ?? BEASTMODE_PROGRAM_ID;
+  const id = programId ?? DEFAULT_PROGRAM_ID;
   const { data } = await supabase
     .from("training_programs")
     .select("rotation_length")
@@ -60,7 +70,7 @@ export async function switchActiveProgram(programId: string) {
     .eq("user_id", userId);
 
   if (error) return { error: error.message };
-  revalidate();
+  revalidateNav();
   return { ok: true };
 }
 
@@ -84,7 +94,7 @@ export async function adjustRotation(delta: 1 | -1) {
     .eq("user_id", userId);
 
   if (error) return { error: error.message };
-  revalidate();
+  revalidateNav();
   return { ok: true, current_rotation_index: next };
 }
 
@@ -106,7 +116,7 @@ export async function setRotationIndex(index: number) {
     .eq("user_id", userId);
 
   if (error) return { error: error.message };
-  revalidate();
+  revalidateNav();
   return { ok: true };
 }
 
@@ -131,7 +141,7 @@ export async function updateProgramMetadata(input: {
     .eq("user_id", userId);
 
   if (error) return { error: error.message };
-  revalidate();
+  revalidateProtocolOnly();
   return { ok: true };
 }
 
@@ -153,7 +163,7 @@ export async function updateWorkoutTemplate(input: {
     .update(patch)
     .eq("id", input.id);
   if (error) return { error: error.message };
-  revalidate();
+  revalidateProtocolOnly();
   return { ok: true };
 }
 
@@ -184,7 +194,7 @@ export async function updateTemplateExercise(input: {
     .update(patch)
     .eq("id", input.id);
   if (error) return { error: error.message };
-  revalidate();
+  revalidateProtocolOnly();
   return { ok: true };
 }
 
@@ -226,6 +236,6 @@ export async function reorderTemplateExercise(
     .update({ order_index: oldB })
     .eq("id", a.id);
 
-  revalidate();
+  revalidateProtocolOnly();
   return { ok: true };
 }
