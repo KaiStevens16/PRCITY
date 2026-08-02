@@ -8,7 +8,7 @@ import { isRunWarmupExercise } from "@/lib/run-warmup";
 import { isRingStabilityWork } from "@/lib/ring-stability-work";
 import { isExactTargetSetsExercise } from "@/lib/exact-target-sets";
 import { emptyWarmupChecklist } from "@/lib/warmup-checklist";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { revalidateTrainingCaches } from "@/lib/cache-tags";
 

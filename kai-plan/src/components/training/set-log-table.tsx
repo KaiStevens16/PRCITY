@@ -179,9 +179,10 @@ export function SetLogTable({ sessionExerciseId, sets: serverSets }: Props) {
       }
       setSets((prev) => prev.filter((s) => s.id !== optimisticId));
       setDraft((d) => {
-        const { [optimisticId]: _, ...rest } = d;
-        draftRef.current = rest;
-        return rest;
+        const next = { ...d };
+        delete next[optimisticId];
+        draftRef.current = next;
+        return next;
       });
       localMutating.current = false;
     });
@@ -192,9 +193,10 @@ export function SetLogTable({ sessionExerciseId, sets: serverSets }: Props) {
     localMutating.current = true;
     setSets((list) => list.filter((s) => s.id !== id));
     setDraft((d) => {
-      const { [id]: _, ...rest } = d;
-      draftRef.current = rest;
-      return rest;
+      const next = { ...d };
+      delete next[id];
+      draftRef.current = next;
+      return next;
     });
     startTransition(async () => {
       if (id.startsWith("optimistic-")) {

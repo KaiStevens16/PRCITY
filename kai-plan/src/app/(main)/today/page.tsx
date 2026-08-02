@@ -9,7 +9,7 @@ import { TodayWorkoutChooser } from "@/components/training/today-workout-chooser
 import { ExerciseCard } from "@/components/training/exercise-card";
 import { FinishSessionFooter } from "@/components/training/finish-session-footer";
 import { PlannedExerciseCard } from "@/components/training/planned-exercise-card";
-import type { LastSetPerformanceRow, SetLog, WorkoutTemplate } from "@/types/database";
+import type { SetLog, WorkoutTemplate } from "@/types/database";
 import { Card, CardContent } from "@/components/ui/card";
 
 type TodayPageProps = { searchParams: Promise<{ workout?: string }> };
